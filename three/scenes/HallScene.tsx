@@ -14,6 +14,7 @@ import {
   Mountains,
   Planet,
   Sky,
+  Staged,
   type SkyOptions,
   WetFloor,
 } from "../parts";
@@ -123,6 +124,7 @@ export function HallScene({ visible }: { visible: boolean }) {
 
   return (
     <group visible={visible}>
+      <Staged>
       <Sky options={SKY} />
       <Mountains world={world} radius={150} height={30} seed={3} color="#1d1610" />
       <Mountains world={world} radius={95} height={18} seed={8} />
@@ -134,7 +136,7 @@ export function HallScene({ visible }: { visible: boolean }) {
       <Railing world={world} radius={8.3} center={[0, HOLE[2]]} from={0.32} arc={Math.PI * 2 - 0.64} />
 
       <group ref={hole}>
-        <BlackHole position={HOLE} size={8.2} tilt={TILT} roll={ROLL} gain={1.5} bands={2.1} />
+        <BlackHole resolution={768} position={HOLE} size={8.2} tilt={TILT} roll={ROLL} gain={1.5} bands={2.1} />
       </group>
       <DustDisk
         position={HOLE}
@@ -198,6 +200,7 @@ export function HallScene({ visible }: { visible: boolean }) {
       ))}
 
       <Figure world={world} kind="coat" position={[0, 0, 10]} rim={1.1} />
+      </Staged>
     </group>
   );
 }

@@ -16,6 +16,7 @@ import {
   Mountains,
   Planet,
   Sky,
+  Staged,
   type SkyOptions,
   WetFloor,
 } from "../parts";
@@ -231,6 +232,7 @@ export function ProjectsScene({ visible }: { visible: boolean }) {
 
   return (
     <group visible={visible}>
+      <Staged>
       <Sky options={SKY} />
       <Mountains world={world} radius={150} height={26} seed={5} color="#1a140e" />
       <Mountains world={world} radius={90} height={14} seed={12} />
@@ -301,6 +303,7 @@ export function ProjectsScene({ visible }: { visible: boolean }) {
       })}
 
       <Figure world={world} kind="casual" position={[-0.9, 0, 9.8]} scale={1.03} rim={1.8} />
+      </Staged>
     </group>
   );
 }

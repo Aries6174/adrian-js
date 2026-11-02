@@ -3,7 +3,8 @@
 import { useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
-import { Figure, Planet, Sky, type SkyOptions } from "../parts";
+import { Figure, Planet, Sky,
+  Staged, type SkyOptions } from "../parts";
 import {
   fbm,
   glow,
@@ -583,6 +584,7 @@ export function AboutScene({ visible }: { visible: boolean }) {
 
   return (
     <group visible={visible}>
+      <Staged>
       <Sky options={SKY} />
       <Planet position={[140, 96, -300]} radius={46} light={[-0.8, 0.1, 0.6]} tint="#39435f" />
       <Planet position={[92, 74, -360]} radius={18} light={[-0.8, 0.2, 0.6]} tint="#343a56" />
@@ -607,6 +609,7 @@ export function AboutScene({ visible }: { visible: boolean }) {
         rotationY={-0.1}
         rim={1.5}
       />
+      </Staged>
     </group>
   );
 }

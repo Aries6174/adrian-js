@@ -3,6 +3,30 @@ import * as THREE from "three";
 /** One clock for every shader, advanced by the Director. */
 export const uTime = { value: 0 };
 
+/** Offscreen images still to be drawn for the first time. A world waits for them before it's ready. */
+export const bakes = { pending: 0 };
+
+/** Compiles for the buffer it will draw into, as shaders differ by target. */
+export function compileFor(
+  gl: THREE.WebGLRenderer,
+  scene: THREE.Object3D,
+  camera: THREE.Camera,
+  target: THREE.WebGLRenderTarget,
+) {
+  const previous = gl.getRenderTarget();
+  gl.setRenderTarget(target);
+  const done = gl.compileAsync(scene, camera);
+  gl.setRenderTarget(previous);
+  return done;
+}
+
+export function isShown(object: THREE.Object3D | null) {
+  for (let node = object; node; node = node.parent) {
+    if (!node.visible) return false;
+  }
+  return Boolean(object);
+}
+
 export const HASH_GLSL = /* glsl */ `
 float hash21(vec2 p){ p=fract(p*vec2(123.34,456.21)); p+=dot(p,p+45.32); return fract(p.x*p.y); }
 float hash31(vec3 p){ p=fract(p*.1031); p+=dot(p,p.zyx+31.32); return fract((p.x+p.y)*p.z); }
@@ -229,7 +253,10 @@ void main(){
     vec3 q=vW*uDetail;
     float n0=fbm3(q);
     float e=.14;
-    vec3 g=vec3(fbm3(q+vec3(e,0,0))-n0,fbm3(q+vec3(0,e,0))-n0,fbm3(q+vec3(0,0,e))-n0)/e;
+    vec3 g=vec3(0.);
+    if(lod>.1){
+      g=vec3(fbm3(q+vec3(e,0,0))-n0,fbm3(q+vec3(0,e,0))-n0,fbm3(q+vec3(0,0,e))-n0)/e;
+    }
     N=normalize(N-g*uBump*lod);
     albedo*=mix(1.,.55+n0*.95,lod);
     albedo=mix(albedo,uAccent,smoothstep(.45,.82,N.y)*smoothstep(.42,.62,vnoise3(q*.55+7.))*.75);

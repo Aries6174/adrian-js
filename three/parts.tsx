@@ -1,14 +1,18 @@
 "use client";
 
-import { type ThreeEvent, useFrame } from "@react-three/fiber";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { type ThreeEvent, useFrame, useThree } from "@react-three/fiber";
+import { Children, createContext, type ReactNode, useContext, useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import { Reflector } from "three/examples/jsm/objects/Reflector.js";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import { getStage, type SceneId } from "@/lib/stage";
 import {
+  bakes,
+  compileFor,
   fbm,
   glow,
+  HASH_GLSL,
+  isShown,
   NOISE_GLSL,
   noiseUniforms,
   ridged,
@@ -18,6 +22,24 @@ import {
   uTime,
   type World,
 } from "./shared";
+
+/** Told when every part of a world has been built. */
+export const WorldBuilt = createContext<(() => void) | null>(null);
+
+/** Builds its children one per frame, so one heavy world doesn't freeze the page. */
+export function Staged({ children }: { children: ReactNode }) {
+  const items = Children.toArray(children);
+  const [count, setCount] = useState(1);
+  const built = useContext(WorldBuilt);
+  const finished = count >= items.length;
+  useFrame(() => {
+    if (!finished) setCount((current) => current + 1);
+  });
+  useEffect(() => {
+    if (finished) built?.();
+  }, [finished, built]);
+  return <>{items.slice(0, count)}</>;
+}
 
 /** Worlds stay mounted while hidden, so their clickable parts must opt out of hit testing. */
 function raycastVisible(
@@ -111,6 +133,13 @@ void main(){
   gl_FragColor=vec4(col,alpha*mask);
 }`;
 
+const HOLE_SHOW_FRAG = /* glsl */ `
+uniform sampler2D tHole;
+varying vec2 vP;
+void main(){
+  gl_FragColor=texture2D(tHole,vP*.5+.5);
+}`;
+
 export function BlackHole({
   position,
   size,
@@ -119,6 +148,7 @@ export function BlackHole({
   gain = 1,
   bands = 2.6,
   quality = 84,
+  resolution = 1024,
 }: {
   position: [number, number, number];
   size: number;
@@ -127,19 +157,27 @@ export function BlackHole({
   gain?: number;
   bands?: number;
   quality?: number;
+  resolution?: number;
 }) {
+  const gl = useThree((s) => s.gl);
   const ref = useRef<THREE.Mesh>(null);
-  const material = useMemo(
-    () =>
+  const run = useRef({ status: "new", tick: 0 });
+  const { target, bakeScene, bakeCamera, material } = useMemo(() => {
+    const target = new THREE.WebGLRenderTarget(resolution, resolution, {
+      type: THREE.HalfFloatType,
+      depthBuffer: false,
+    });
+    const bakeScene = new THREE.Scene();
+    const quad = new THREE.Mesh(
+      new THREE.PlaneGeometry(2, 2),
       new THREE.ShaderMaterial({
-        vertexShader: HOLE_VERT,
+        vertexShader: /* glsl */ `
+          varying vec2 vP;
+          void main(){ vP=position.xy; gl_Position=vec4(position.xy,0.,1.); }`,
         fragmentShader: HOLE_FRAG,
-        transparent: true,
+        blending: THREE.NoBlending,
+        depthTest: false,
         depthWrite: false,
-        // Premultiplied: the disk adds light while the shadow blocks the stars.
-        blending: THREE.CustomBlending,
-        blendSrc: THREE.OneFactor,
-        blendDst: THREE.OneMinusSrcAlphaFactor,
         uniforms: {
           ...noiseUniforms,
           uTime,
@@ -150,10 +188,25 @@ export function BlackHole({
           uSteps: { value: quality },
         },
       }),
-    [tilt, roll, gain, bands, quality],
-  );
+    );
+    quad.frustumCulled = false;
+    bakeScene.add(quad);
+    const material = new THREE.ShaderMaterial({
+      vertexShader: HOLE_VERT,
+      fragmentShader: HOLE_SHOW_FRAG,
+      transparent: true,
+      depthWrite: false,
+      // Premultiplied: the disk adds light while the shadow blocks the stars.
+      blending: THREE.CustomBlending,
+      blendSrc: THREE.OneFactor,
+      blendDst: THREE.OneMinusSrcAlphaFactor,
+      uniforms: { tHole: { value: target.texture } },
+    });
+    return { target, bakeScene, bakeCamera: new THREE.Camera(), material };
+  }, [tilt, roll, gain, bands, quality, resolution]);
 
   const center = useMemo(() => new THREE.Vector3(...position), [position]);
+
   useFrame(({ camera }) => {
     const mesh = ref.current;
     if (!mesh) return;
@@ -163,6 +216,29 @@ export function BlackHole({
     const lift = size * 0.2;
     mesh.position.copy(center).lerp(camera.position, lift / distance);
     mesh.scale.setScalar((size * (distance - lift)) / distance);
+
+    const state = run.current;
+    if (state.status === "new") {
+      state.status = "compiling";
+      bakes.pending += 1;
+      compileFor(gl, bakeScene, bakeCamera, target).then(() => {
+        state.status = "first";
+      });
+      return;
+    }
+    if (state.status === "compiling") return;
+    state.tick += 1;
+    const first = state.status === "first";
+    // The disk turns slowly, so every other frame is plenty.
+    if (!first && (state.tick % 2 !== 0 || !isShown(mesh))) return;
+    const previous = gl.getRenderTarget();
+    gl.setRenderTarget(target);
+    gl.render(bakeScene, bakeCamera);
+    gl.setRenderTarget(previous);
+    if (first) {
+      state.status = "live";
+      bakes.pending -= 1;
+    }
   });
 
   return (
@@ -429,22 +505,12 @@ export type SkyOptions = {
   stars?: number;
 };
 
-const SKY_FRAG = /* glsl */ `
+const SKY_BAKE_FRAG = /* glsl */ `
 uniform float uTime;
 uniform vec3 uZenith,uHorizon,uSunDir,uSun,uGlow,uCloudShade,uCloudLit,uNebA,uNebB,uNebDir;
-uniform float uClouds,uCloudTop,uCloudScale,uNeb,uNebFocus,uStars;
+uniform float uClouds,uCloudTop,uCloudScale,uNeb,uNebFocus;
 varying vec3 vDir;
 ${NOISE_GLSL}
-float stars(vec3 d,float scale,float rate){
-  vec3 p=d*scale;
-  vec3 i=floor(p);
-  vec3 f=fract(p)-.5;
-  float h=hash31(i);
-  if(h<1.-rate) return 0.;
-  vec3 o=vec3(hash31(i+1.),hash31(i+2.),hash31(i+3.))-.5;
-  float s=smoothstep(.13,0.,length(f-o*.7));
-  return s*s*(.55+.45*sin(uTime*(.6+h*3.)+h*90.));
-}
 vec2 clouds(vec2 uv,float top01){
   vec2 w=vec2(fbm2(uv*.55+3.),fbm2(uv*.55+9.));
   float n=fbm2(uv+w*1.4);
@@ -464,17 +530,9 @@ void main(){
     col+=uNebA*pow(n,3.4)*(.08+focus*2.)*uNeb*.75;
   }
   float s=max(dot(d,uSunDir),0.);
-  float upper=smoothstep(-.015,.03,y);
-  // A sparse field of bright stars over a dense dusting, thickest around the nebula.
-  float dusting=stars(d,620.,.2+focus*.35)*(.35+focus*2.2);
-  col+=uStars*upper*(
-    stars(d,190.,.06)*vec3(1.,.93,.82)*1.7+
-    stars(d,340.,.11)*vec3(.93,.94,1.)*1.1+
-    stars(d,85.,.016)*vec3(1.,.84,.6)*4.5+
-    dusting*vec3(1.,.8,.55)*.9);
   col+=uGlow*exp(-abs(y)*30.)*(.1+pow(s,8.)*1.1);
   col+=uGlow*exp(-abs(y)*22.)*pow(s,30.)*.22;
-  col+=uSun*(pow(s,2400.)*12.+pow(s,320.)*1.2+pow(s,60.)*.1)*upper;
+  float cover=0.;
   if(uClouds>0.&&y<uCloudTop&&y>-.05){
     float az=atan(d.x,-d.z);
     vec2 uv=vec2(az*uCloudScale+uTime*.006,y*uCloudScale*4.2);
@@ -490,18 +548,105 @@ void main(){
       cc+=uCloudLit*pow(lit,1.7)*near*1.9;
       cc+=uCloudLit*exp(-y*34.)*(.05+pow(s,5.)*.3);
       cc+=uCloudLit*pow(s,60.)*.22;
-      col=mix(col,cc,c*uClouds);
+      cover=c*uClouds;
+      col=mix(col,cc,cover);
     }
   }
-  gl_FragColor=vec4(col,1.);
+  gl_FragColor=vec4(col,cover);
+}`;
+
+const SKY_LIVE_FRAG = /* glsl */ `
+uniform float uTime;
+uniform samplerCube tSky;
+uniform vec3 uSunDir,uSun,uNebDir;
+uniform float uNebFocus,uStars;
+varying vec3 vDir;
+${HASH_GLSL}
+float stars(vec3 d,float scale,float rate){
+  vec3 p=d*scale;
+  vec3 i=floor(p);
+  vec3 f=fract(p)-.5;
+  float h=hash31(i);
+  if(h<1.-rate) return 0.;
+  vec3 o=vec3(hash31(i+1.),hash31(i+2.),hash31(i+3.))-.5;
+  float s=smoothstep(.13,0.,length(f-o*.7));
+  return s*s*(.55+.45*sin(uTime*(.6+h*3.)+h*90.));
+}
+void main(){
+  vec3 d=normalize(vDir);
+  vec4 baked=textureCube(tSky,d);
+  float focus=pow(max(dot(d,uNebDir),0.),uNebFocus);
+  float s=max(dot(d,uSunDir),0.);
+  float upper=smoothstep(-.015,.03,d.y);
+  // A sparse field of bright stars over a dense dusting, thickest around the nebula.
+  float dusting=stars(d,620.,.2+focus*.35)*(.35+focus*2.2);
+  vec3 sharp=uStars*upper*(
+    stars(d,190.,.06)*vec3(1.,.93,.82)*1.7+
+    stars(d,340.,.11)*vec3(.93,.94,1.)*1.1+
+    stars(d,85.,.016)*vec3(1.,.84,.6)*4.5+
+    dusting*vec3(1.,.8,.55)*.9);
+  sharp+=uSun*(pow(s,2400.)*12.+pow(s,320.)*1.2+pow(s,60.)*.1)*upper;
+  gl_FragColor=vec4(baked.rgb+sharp*(1.-baked.a),1.);
 }`;
 
 export function Sky({ options, radius = 1400 }: { options: SkyOptions; radius?: number }) {
+  const gl = useThree((s) => s.gl);
   const ref = useRef<THREE.Mesh>(null);
-  const material = useMemo(() => {
+  const run = useRef({ status: "new", face: 0, tick: 0 });
+  const { material, target, bakeScene, faces } = useMemo(() => {
     const vec = (v: [number, number, number]) => new THREE.Vector3(...v).normalize();
     const color = (hex: string, power = 1) => new THREE.Color(hex).multiplyScalar(power);
-    return new THREE.ShaderMaterial({
+    const target = new THREE.WebGLCubeRenderTarget(options.clouds ? 1024 : 512, {
+      type: THREE.HalfFloatType,
+      depthBuffer: false,
+    });
+    const sunDir = { value: vec(options.sunDir) };
+    const sun = { value: color(options.sun, options.sunPower ?? 1) };
+    const nebDir = { value: vec(options.nebulaDir ?? options.sunDir) };
+    const nebFocus = { value: options.nebulaFocus ?? 6 };
+    const bakeScene = new THREE.Scene();
+    const sphere = new THREE.Mesh(
+      new THREE.SphereGeometry(10, 32, 24),
+      new THREE.ShaderMaterial({
+        side: THREE.BackSide,
+        blending: THREE.NoBlending,
+        depthTest: false,
+        depthWrite: false,
+        vertexShader: /* glsl */ `
+          varying vec3 vDir;
+          void main(){
+            vDir=position;
+            gl_Position=projectionMatrix*viewMatrix*vec4(position,1.);
+          }`,
+        fragmentShader: SKY_BAKE_FRAG,
+        uniforms: {
+          ...noiseUniforms,
+          uTime,
+          uZenith: { value: color(options.zenith) },
+          uHorizon: { value: color(options.horizon) },
+          uSunDir: sunDir,
+          uSun: sun,
+          uGlow: { value: color(options.glow, options.glowPower ?? 1) },
+          uClouds: { value: options.clouds ?? 0 },
+          uCloudTop: { value: options.cloudTop ?? 0.18 },
+          uCloudScale: { value: options.cloudScale ?? 4 },
+          uCloudShade: { value: color(options.cloudShade ?? "#0a0806") },
+          uCloudLit: { value: color(options.cloudLit ?? "#ffb060") },
+          uNebA: { value: color(options.nebulaA ?? "#5a3612") },
+          uNebB: { value: color(options.nebulaB ?? "#ffb765") },
+          uNeb: { value: options.nebula ?? 0.5 },
+          uNebDir: nebDir,
+          uNebFocus: nebFocus,
+        },
+      }),
+    );
+    sphere.frustumCulled = false;
+    bakeScene.add(sphere);
+    const cube = new THREE.CubeCamera(0.1, 100, target);
+    cube.coordinateSystem = gl.coordinateSystem;
+    cube.updateCoordinateSystem();
+    cube.updateMatrixWorld(true);
+    const material = new THREE.ShaderMaterial({
       side: THREE.BackSide,
       depthWrite: false,
       vertexShader: /* glsl */ `
@@ -510,32 +655,60 @@ export function Sky({ options, radius = 1400 }: { options: SkyOptions; radius?: 
           vDir=(modelMatrix*vec4(position,0.)).xyz;
           gl_Position=projectionMatrix*viewMatrix*modelMatrix*vec4(position,1.);
         }`,
-      fragmentShader: SKY_FRAG,
+      fragmentShader: SKY_LIVE_FRAG,
       uniforms: {
-        ...noiseUniforms,
         uTime,
-        uZenith: { value: color(options.zenith) },
-        uHorizon: { value: color(options.horizon) },
-        uSunDir: { value: vec(options.sunDir) },
-        uSun: { value: color(options.sun, options.sunPower ?? 1) },
-        uGlow: { value: color(options.glow, options.glowPower ?? 1) },
-        uClouds: { value: options.clouds ?? 0 },
-        uCloudTop: { value: options.cloudTop ?? 0.18 },
-        uCloudScale: { value: options.cloudScale ?? 4 },
-        uCloudShade: { value: color(options.cloudShade ?? "#0a0806") },
-        uCloudLit: { value: color(options.cloudLit ?? "#ffb060") },
-        uNebA: { value: color(options.nebulaA ?? "#5a3612") },
-        uNebB: { value: color(options.nebulaB ?? "#ffb765") },
-        uNeb: { value: options.nebula ?? 0.5 },
-        uNebDir: { value: vec(options.nebulaDir ?? options.sunDir) },
-        uNebFocus: { value: options.nebulaFocus ?? 6 },
+        tSky: { value: target.texture },
+        uSunDir: sunDir,
+        uSun: sun,
+        uNebDir: nebDir,
+        uNebFocus: nebFocus,
         uStars: { value: options.stars ?? 1 },
       },
     });
-  }, [options]);
+    return { material, target, bakeScene, faces: cube.children as THREE.Camera[] };
+  }, [options, gl]);
+
+  const drawFace = (face: number) => {
+    const previous = gl.getRenderTarget();
+    gl.setRenderTarget(target, face);
+    gl.render(bakeScene, faces[face]);
+    gl.setRenderTarget(previous);
+  };
 
   useFrame(({ camera }) => {
-    ref.current?.position.copy(camera.position);
+    const mesh = ref.current;
+    if (!mesh) return;
+    mesh.position.copy(camera.position);
+
+    const state = run.current;
+    if (state.status === "new") {
+      state.status = "compiling";
+      bakes.pending += 1;
+      compileFor(gl, bakeScene, faces[0], target).then(() => {
+        state.status = "first";
+      });
+      return;
+    }
+    if (state.status === "compiling") return;
+    // First pass: one face per frame, so preparing a world doesn't cause a hitch.
+    if (state.status === "first") {
+      drawFace(state.face);
+      state.face += 1;
+      if (state.face === 6) {
+        state.face = 0;
+        state.status = "live";
+        bakes.pending -= 1;
+      }
+      return;
+    }
+    // Only clouds change over time, and they drift very slowly.
+    if (!options.clouds || !isShown(mesh)) return;
+    state.tick += 1;
+    if (state.tick % 20 === 0) {
+      drawFace(state.face);
+      state.face = (state.face + 1) % 6;
+    }
   });
 
   return (
@@ -649,7 +822,10 @@ export function WetFloor({
   useEffect(() => {
     const render = reflector.onBeforeRender;
     // The disk is expensive and barely visible in the floor, so it stays out of the mirror.
+    let frame = 0;
     reflector.onBeforeRender = function (renderer, scene, camera, geometry, material, group) {
+      frame += 1;
+      if (frame % 2 === 0) return;
       const target = hide?.current;
       if (target) target.visible = false;
       render.call(reflector, renderer, scene, camera, geometry, material, group);
@@ -686,8 +862,8 @@ export function Mountains({
   to?: number;
 }) {
   const { geometry, material } = useMemo(() => {
-    const columns = 760;
-    const rows = 56;
+    const columns = 520;
+    const rows = 40;
     const scale = height * 3.2;
     const vertices: number[] = [];
     const indices: number[] = [];

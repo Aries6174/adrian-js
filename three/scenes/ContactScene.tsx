@@ -13,6 +13,7 @@ import {
   HoloPanel,
   Mountains,
   Sky,
+  Staged,
   type SkyOptions,
   WetFloor,
 } from "../parts";
@@ -250,13 +251,14 @@ export function ContactScene({ visible }: { visible: boolean }) {
 
   return (
     <group visible={visible}>
+      <Staged>
       <Sky options={SKY} />
       <Mountains world={world} radius={210} height={46} seed={21} color="#1e150e" />
       <Mountains world={world} radius={120} height={21} seed={14} color="#100b06" />
       <Mountains world={world} radius={62} height={8} seed={6} color="#0d0906" base={-3} />
 
       <group ref={hole}>
-        <BlackHole position={HOLE} size={22} tilt={TILT} roll={ROLL} gain={1.15} bands={2.2} />
+        <BlackHole resolution={640} position={HOLE} size={22} tilt={TILT} roll={ROLL} gain={1.15} bands={2.2} />
       </group>
       <DustDisk
         position={HOLE}
@@ -312,6 +314,7 @@ export function ContactScene({ visible }: { visible: boolean }) {
       </group>
 
       <Figure world={world} kind="casual" position={[-1.75, 0, 8.1]} scale={1.03} rim={1.8} />
+      </Staged>
     </group>
   );
 }

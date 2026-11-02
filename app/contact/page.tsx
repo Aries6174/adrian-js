@@ -3,6 +3,7 @@ import Image from "next/image";
 import { Suspense } from "react";
 import { ContactForm } from "@/components/ContactForm";
 import { ContactLinks } from "@/components/ContactLinks";
+import { PageReady } from "@/components/PageReady";
 import { Eyebrow, FootNote, PageTitle, SectionLabel, stagger } from "@/components/ui";
 import { loadContent } from "@/lib/store";
 import { landDots, mapPoint } from "@/lib/worldmap";
@@ -110,6 +111,7 @@ export default function ContactPage() {
 
       <Suspense fallback={null}>
         <ContactPanels />
+        <PageReady path="/contact" />
       </Suspense>
     </main>
   );

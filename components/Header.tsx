@@ -3,6 +3,7 @@
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { navItems } from "@/lib/content";
+import { useStage } from "@/lib/stage";
 import { TravelLink } from "./TravelLink";
 
 const manilaTime = new Intl.DateTimeFormat("en-US", {
@@ -27,6 +28,7 @@ function Clock() {
 
 export function Header() {
   const pathname = usePathname();
+  const targetPath = useStage((s) => s.targetPath);
 
   return (
     <header className="site-header fixed inset-x-0 top-0 z-20 flex flex-wrap items-center gap-x-10 gap-y-2 px-[var(--gutter)] py-4 lg:h-[5.4rem] lg:flex-nowrap lg:py-0 lg:pl-[calc(var(--gutter)+1.5rem)] max-lg:bg-gradient-to-b max-lg:from-ink/90 max-lg:to-transparent">
@@ -41,7 +43,7 @@ export function Header() {
 
       <nav aria-label="Main" className="flex gap-x-6 lg:gap-x-9 max-lg:order-3 max-lg:w-full max-lg:justify-between">
         {navItems.map((item, index) => {
-          const active = pathname.startsWith(item.href);
+          const active = (targetPath ?? pathname).startsWith(item.href);
           return (
             <TravelLink
               key={item.href}

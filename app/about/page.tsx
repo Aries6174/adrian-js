@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import { AboutView } from "@/components/AboutView";
+import { PageReady } from "@/components/PageReady";
 import { loadContent } from "@/lib/store";
 
 export const metadata: Metadata = {
@@ -11,7 +12,12 @@ export const metadata: Metadata = {
 
 async function AboutContent() {
   const { about } = await loadContent();
-  return <AboutView about={about} />;
+  return (
+    <>
+      <AboutView about={about} />
+      <PageReady path="/about" />
+    </>
+  );
 }
 
 export default function AboutPage() {

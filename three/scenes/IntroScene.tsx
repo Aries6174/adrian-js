@@ -3,7 +3,8 @@
 import { useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import { mergeVertices } from "three/examples/jsm/utils/BufferGeometryUtils.js";
-import { Asteroids, BlackHole, DustDisk, Figure, rockGeometry, Sky, type SkyOptions } from "../parts";
+import { Asteroids, BlackHole, DustDisk, Figure, rockGeometry, Sky,
+  Staged, type SkyOptions } from "../parts";
 import {
   diskBasis,
   fbm,
@@ -91,8 +92,8 @@ function headlandHeight(x: number, z: number) {
 
 /** The headland the explorer stands on, filling the lower centre and right. */
 function foregroundGeometry() {
-  const columns = 520;
-  const rows = 280;
+  const columns = 400;
+  const rows = 220;
   const vertices: number[] = [];
   const indices: number[] = [];
   for (let r = 0; r <= rows; r++) {
@@ -167,8 +168,8 @@ function coastEdge(z: number) {
 
 /** Long cliff line running out to the horizon, sinking into the sea at its near end. */
 function coastGeometry() {
-  const columns = 240;
-  const rows = 380;
+  const columns = 200;
+  const rows = 300;
   const vertices: number[] = [];
   const indices: number[] = [];
   for (let r = 0; r <= rows; r++) {
@@ -319,13 +320,11 @@ function Water() {
   );
 }
 
-function Land({ world }: { world: World }) {
-  const { foreground, coast, stacks, rock, farRock } = useMemo(
+function Foreground({ world }: { world: World }) {
+  const { geometry, material } = useMemo(
     () => ({
-      foreground: foregroundGeometry(),
-      coast: coastGeometry(),
-      stacks: [stackGeometry(1), stackGeometry(4), stackGeometry(7), stackGeometry(11)],
-      rock: surface(world, {
+      geometry: foregroundGeometry(),
+      material: surface(world, {
         color: "#262019",
         accent: "#35331a",
         flat: true,
@@ -335,7 +334,16 @@ function Land({ world }: { world: World }) {
         spec: 0.8,
         rim: 0.08,
       }),
-      farRock: surface(world, {
+    }),
+    [world],
+  );
+  return <mesh geometry={geometry} material={material} />;
+}
+
+function useFarRock(world: World) {
+  return useMemo(
+    () =>
+      surface(world, {
         color: "#1f1a15",
         accent: "#2a2613",
         detail: 1.7,
@@ -344,20 +352,28 @@ function Land({ world }: { world: World }) {
         spec: 0.2,
         rim: 0.1,
       }),
-    }),
     [world],
   );
+}
+
+function Coast({ world }: { world: World }) {
+  const geometry = useMemo(() => coastGeometry(), []);
+  const material = useFarRock(world);
+  return <mesh geometry={geometry} material={material} />;
+}
+
+function Stacks({ world }: { world: World }) {
+  const stacks = useMemo(() => [stackGeometry(1), stackGeometry(4), stackGeometry(7), stackGeometry(11)], []);
+  const material = useFarRock(world);
   return (
     <>
-      <mesh geometry={foreground} material={rock} />
-      <mesh geometry={coast} material={farRock} />
-      <mesh geometry={stacks[2]} material={farRock} position={[-16.5, -1, 7]} scale={[9, 8.4, 10]} />
-      <mesh geometry={stacks[3]} material={farRock} position={[-11.4, -1, 12]} scale={[4.6, 4.2, 5]} />
+      <mesh geometry={stacks[2]} material={material} position={[-16.5, -1, 7]} scale={[9, 8.4, 10]} />
+      <mesh geometry={stacks[3]} material={material} position={[-11.4, -1, 12]} scale={[4.6, 4.2, 5]} />
       {STACKS.map(([x, z, radius], index) => (
         <mesh
           key={index}
           geometry={stacks[index]}
-          material={farRock}
+          material={material}
           position={[x, 0, z]}
           scale={[radius, radius * 2.3, radius]}
         />
@@ -390,6 +406,7 @@ export function IntroScene({ visible }: { visible: boolean }) {
 
   return (
     <group visible={visible}>
+      <Staged>
       <Sky options={SKY} />
       <BlackHole position={HOLE} size={176} tilt={TILT} roll={ROLL} gain={1.05} />
       <DustDisk
@@ -417,9 +434,12 @@ export function IntroScene({ visible }: { visible: boolean }) {
         size={2.5}
       />
       <Water />
-      <Land world={world} />
+      <Foreground world={world} />
+      <Coast world={world} />
+      <Stacks world={world} />
       <Boulders world={world} />
       <Figure world={world} kind="hood" position={[0, 5.36, 12]} scale={1} rim={1.5} />
+      </Staged>
     </group>
   );
 }

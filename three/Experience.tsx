@@ -1,7 +1,7 @@
 "use client";
 
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import { memo, useEffect, useMemo, useRef } from "react";
+import { memo, type ReactNode, useCallback, useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import { EffectComposer } from "three/examples/jsm/postprocessing/EffectComposer.js";
 import { RenderPass } from "three/examples/jsm/postprocessing/RenderPass.js";
@@ -17,13 +17,15 @@ import {
   useStage,
   warpAmount,
   warpIsLeaving,
+  worldReady,
 } from "@/lib/stage";
 import { AboutScene, ABOUT_POSE } from "./scenes/AboutScene";
 import { ContactScene, CONTACT_POSE } from "./scenes/ContactScene";
 import { HallScene, HALL_POSE } from "./scenes/HallScene";
 import { IntroScene, INTRO_POSE } from "./scenes/IntroScene";
+import { WorldBuilt } from "./parts";
 import { ProjectsScene, PROJECTS_POSE } from "./scenes/ProjectsScene";
-import { NOISE_GLSL, noiseUniforms, type Pose, uTime } from "./shared";
+import { bakes, compileFor, NOISE_GLSL, noiseUniforms, type Pose, uTime } from "./shared";
 
 const POSES: Record<SceneId, Pose> = {
   intro: INTRO_POSE,
@@ -59,7 +61,7 @@ function Director() {
     const pose = POSES[getStage().scene];
     const now = performance.now();
     const warp = warpAmount(now);
-    const leaving = warpIsLeaving(now);
+    const leaving = warpIsLeaving();
     const aspect = size.width / size.height;
     const t = uTime.value;
 
@@ -175,6 +177,16 @@ const CLAMP = {
     }`,
 };
 
+type WorldEntry = { group: THREE.Group; status: "building" | "mounted" | "compiling" | "compiled" | "warm" };
+const worlds = new Map<SceneId, WorldEntry>();
+
+/** Resolution steps. Lower ones also drop anti-aliasing and glow. */
+const MAX_QUALITY = 1.25;
+const MIN_QUALITY = 0.7;
+const QUALITY_STEP = 0.15;
+const SLOW_FRAME = 1 / 38;
+const FAST_FRAME = 1 / 56;
+
 function PostFX() {
   const gl = useThree((s) => s.gl);
   const scene = useThree((s) => s.scene);
@@ -182,6 +194,7 @@ function PostFX() {
   const run = useRef({
     first: true,
     scene: getStage().scene,
+    sceneSince: 0,
     fadeStart: -Infinity,
     settleUntil: 0,
     count: 0,
@@ -190,10 +203,13 @@ function PostFX() {
     width: 0,
     height: 0,
     pixelRatio: 0,
-    quality: Infinity,
+    quality: MAX_QUALITY,
+    ceiling: MAX_QUALITY,
+    ceilingUntil: 0,
+    raisedAt: -Infinity,
   });
 
-  const { composer, grade, snapshot } = useMemo(() => {
+  const { composer, grade, snapshot, bloom, warmTarget } = useMemo(() => {
     const target = new THREE.WebGLRenderTarget(4, 4, {
       type: THREE.HalfFloatType,
       samples: 2,
@@ -201,14 +217,16 @@ function PostFX() {
     const composer = new EffectComposer(gl, target);
     composer.addPass(new RenderPass(scene, camera));
     composer.addPass(new ShaderPass(CLAMP));
-    composer.addPass(new UnrealBloomPass(new THREE.Vector2(4, 4), 0.11, 0.6, 1));
+    const bloom = new UnrealBloomPass(new THREE.Vector2(4, 4), 0.11, 0.6, 1);
+    composer.addPass(bloom);
     const snapshot = new SavePass();
     composer.addPass(snapshot);
     // Passing a material keeps the shared uniforms; a plain object would be cloned.
     const grade = new ShaderPass(new THREE.ShaderMaterial(GRADE));
     grade.uniforms.tPrevious.value = snapshot.renderTarget.texture;
     composer.addPass(grade);
-    return { composer, grade, snapshot };
+    const warmTarget = new THREE.WebGLRenderTarget(4, 4, { type: THREE.HalfFloatType });
+    return { composer, grade, snapshot, bloom, warmTarget };
   }, [gl, scene, camera]);
 
   useFrame((state, delta) => {
@@ -216,46 +234,90 @@ function PostFX() {
     const now = performance.now();
     const stage = getStage();
 
+    // Prepare worlds out of sight: compile on the side, then one tiny draw to upload everything.
+    for (const [id, world] of worlds) {
+      if (world.status === "mounted") {
+        world.status = "compiling";
+        compileFor(gl, world.group, camera, composer.renderTarget1).then(() => {
+          world.status = "compiled";
+        });
+      } else if (world.status === "compiled" && bakes.pending === 0) {
+        world.group.visible = true;
+        const previous = gl.getRenderTarget();
+        gl.setRenderTarget(warmTarget);
+        gl.render(world.group, camera);
+        gl.setRenderTarget(previous);
+        world.group.visible = false;
+        world.status = "warm";
+        worldReady(id);
+        break;
+      }
+    }
+
     // Any change of world dissolves from the last saved frame, including back and forward.
     if (stage.scene !== r.scene) {
       r.scene = stage.scene;
+      r.sceneSince = now;
       if (stage.ready) r.fadeStart = now;
       r.settleUntil = now + SCENE_FADE + 1500;
       r.count = 0;
       r.spent = 0;
     }
-    // A stall while a world is built should not use up the dissolve.
-    if (delta > 0.1 && now - r.fadeStart < SCENE_FADE) r.fadeStart += delta * 1000;
+    for (const [id, world] of worlds) {
+      // If preparing takes far too long, draw it anyway rather than showing nothing.
+      world.group.visible = id === r.scene && (world.status === "warm" || now - r.sceneSince > 6000);
+    }
+
     const left = THREE.MathUtils.clamp(1 - (now - r.fadeStart) / SCENE_FADE, 0, 1);
     const fade = left * left * (3 - 2 * left);
     const warp = warpAmount(now);
 
     const { size, viewport } = state.get();
 
-    // Trade resolution for smoothness on slower GPUs. Only the internal buffers change: the
-    // canvas keeps its size, because resizing it would clear it and show a black frame.
-    // One-off hitches and throttled tabs say nothing about the GPU.
+    // Trade resolution for smoothness. Only the internal buffers change: the canvas keeps its
+    // size, because resizing it would clear it and show a black frame. One-off hitches, page
+    // changes, worlds being prepared and throttled tabs say nothing about the GPU.
+    const preparing = [...worlds.values()].some((world) => world.status !== "warm") || bakes.pending > 0;
+    if (preparing) r.settleUntil = Math.max(r.settleUntil, now + 1000);
+    const best = Math.min(viewport.dpr, MAX_QUALITY);
     const measurable = !r.first && fade === 0 && warp === 0 && now > r.settleUntil;
     if (measurable && delta < 0.2 && !document.hidden && document.hasFocus()) {
       r.count += 1;
       r.spent += delta;
-      if (r.count >= 90) {
+      if (r.count >= 45) {
         const average = r.spent / r.count;
-        const current = Math.min(viewport.dpr, r.quality);
         r.count = 0;
         r.spent = 0;
-        if (average > 0.03 && current > 0.8) {
-          r.quality = Math.max(0.8, current - 0.25);
-          r.settleUntil = now + 2000;
+        if (average > SLOW_FRAME && r.quality > MIN_QUALITY) {
+          // A raise that didn't hold stops further raises above this level for a while.
+          if (now - r.raisedAt < 8000) {
+            r.ceiling = r.quality - QUALITY_STEP;
+            r.ceilingUntil = now + 60000;
+          }
+          r.quality = Math.max(MIN_QUALITY, r.quality - QUALITY_STEP);
+          r.settleUntil = now + 1000;
+        } else if (average < FAST_FRAME && r.quality < best && now - r.raisedAt > 12000) {
+          r.quality = Math.min(now > r.ceilingUntil ? best : r.ceiling, r.quality + QUALITY_STEP);
+          r.raisedAt = now;
+          r.settleUntil = now + 1000;
         }
       }
     }
 
+    if (r.first) {
+      r.quality = Math.min(viewport.dpr, MAX_QUALITY);
+      r.ceiling = r.quality;
+    }
     const pixelRatio = Math.min(viewport.dpr, r.quality);
     if (size.width !== r.width || size.height !== r.height || pixelRatio !== r.pixelRatio) {
       r.width = size.width;
       r.height = size.height;
       r.pixelRatio = pixelRatio;
+      const low = r.quality < 0.95;
+      bloom.enabled = !low;
+      composer.renderTarget1.samples = low ? 0 : 2;
+      composer.renderTarget2.samples = low ? 0 : 2;
+      gl.domElement.dataset.quality = pixelRatio.toFixed(2);
       composer.setPixelRatio(pixelRatio);
       composer.setSize(size.width, size.height);
       grade.uniforms.uAspect.value = size.width / size.height;
@@ -264,12 +326,12 @@ function PostFX() {
     }
 
     r.tick += 1;
-    snapshot.enabled = fade === 0 && (warpIsLeaving(now) || r.tick % 8 === 0);
+    snapshot.enabled = fade === 0 && (warpIsLeaving() || r.tick % 8 === 0);
     grade.uniforms.uFade.value = fade;
     grade.uniforms.uWarp.value = warp;
     composer.render(delta);
 
-    if (r.first) {
+    if (r.first && worlds.get(r.scene)?.status === "warm") {
       r.first = false;
       setStage({ ready: true });
     }
@@ -278,32 +340,87 @@ function PostFX() {
   return null;
 }
 
+function World({ id, children }: { id: SceneId; children: ReactNode }) {
+  const register = useCallback(
+    (group: THREE.Group | null) => {
+      if (group) worlds.set(id, { group, status: "building" });
+      else worlds.delete(id);
+    },
+    [id],
+  );
+  const built = useCallback(() => {
+    const world = worlds.get(id);
+    if (world?.status === "building") world.status = "mounted";
+  }, [id]);
+  return (
+    <group ref={register} visible={false}>
+      <WorldBuilt.Provider value={built}>{children}</WorldBuilt.Provider>
+    </group>
+  );
+}
+
+const ORDER: SceneId[] = ["hall", "projects", "about", "contact", "intro"];
+
 function Worlds() {
   const scene = useStage((s) => s.scene);
   const prepared = useStage((s) => s.mounted);
+  const worldsReady = useStage((s) => s.worldsReady);
   const ready = useStage((s) => s.ready);
+  const leaving = useStage((s) => s.leaving);
   const has = (id: SceneId) => id === scene || prepared.includes(id);
 
-  // From the intro there is only one way forward, so have it waiting.
+  // Quietly get the other worlds ready, one at a time. Small or low-memory devices skip
+  // this and build each world when it's needed.
   useEffect(() => {
-    if (!ready || scene !== "intro") return;
-    const id = window.setTimeout(() => prepareScene("hall"), 2500);
-    return () => window.clearTimeout(id);
-  }, [ready, scene]);
+    if (!ready || leaving) return;
+    const memory = (navigator as Navigator & { deviceMemory?: number }).deviceMemory ?? 8;
+    if (window.innerWidth < 1024 || memory < 4) return;
+    const building = prepared.some((id) => !worldsReady.includes(id));
+    const next = ORDER.find((id) => id !== scene && !prepared.includes(id));
+    if (!next || building) return;
+    let idle = 0;
+    const timer = window.setTimeout(() => {
+      idle = window.requestIdleCallback(() => prepareScene(next), { timeout: 1500 });
+    }, 2000);
+    return () => {
+      window.clearTimeout(timer);
+      if (idle) window.cancelIdleCallback(idle);
+    };
+  }, [ready, leaving, prepared, worldsReady, scene]);
 
   return (
     <>
-      {has("intro") && <IntroScene visible={scene === "intro"} />}
-      {has("hall") && <HallScene visible={scene === "hall"} />}
-      {has("projects") && <ProjectsScene visible={scene === "projects"} />}
-      {has("about") && <AboutScene visible={scene === "about"} />}
-      {has("contact") && <ContactScene visible={scene === "contact"} />}
+      {has("intro") && (
+        <World id="intro">
+          <IntroScene visible />
+        </World>
+      )}
+      {has("hall") && (
+        <World id="hall">
+          <HallScene visible />
+        </World>
+      )}
+      {has("projects") && (
+        <World id="projects">
+          <ProjectsScene visible />
+        </World>
+      )}
+      {has("about") && (
+        <World id="about">
+          <AboutScene visible />
+        </World>
+      )}
+      {has("contact") && (
+        <World id="contact">
+          <ContactScene visible />
+        </World>
+      )}
     </>
   );
 }
 
 /** A fixed ratio: changing it later would resize the canvas, which blanks a frame. */
-const CANVAS_DPR = Math.min(window.devicePixelRatio || 1, 1.6);
+const CANVAS_DPR = Math.min(window.devicePixelRatio || 1, MAX_QUALITY);
 
 export default memo(function Experience() {
   return (

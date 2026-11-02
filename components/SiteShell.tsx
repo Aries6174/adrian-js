@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { type ReactNode, useEffect, useState, useSyncExternalStore } from "react";
 import {
   registerNavigate,
+  routeCommitted,
   sceneForPath,
   setStage,
   useStage,
@@ -27,6 +28,8 @@ export function SiteShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const leaving = useStage((s) => s.leaving);
+  const scene = useStage((s) => s.scene);
+  const holding = useStage((s) => s.holding);
   const ready = useStage((s) => s.ready);
   const webgl = useStage((s) => s.webgl);
   const mounted = useSyncExternalStore(noSubscribe, () => true, () => false);
@@ -35,9 +38,8 @@ export function SiteShell({ children }: { children: ReactNode }) {
     registerNavigate((href) => router.push(href));
   }, [router]);
 
-  // Keeps the world in step with back/forward and direct links.
   useEffect(() => {
-    setStage({ scene: sceneForPath(pathname), leaving: false });
+    routeCommitted(pathname);
   }, [pathname]);
 
   useEffect(() => {
@@ -55,7 +57,7 @@ export function SiteShell({ children }: { children: ReactNode }) {
   const isIntro = sceneForPath(pathname) === "intro";
 
   return (
-    <div data-leaving={leaving}>
+    <div data-leaving={leaving} data-scene={scene}>
       {worldStarted && webgl ? (
         <Experience />
       ) : (
@@ -87,6 +89,15 @@ export function SiteShell({ children }: { children: ReactNode }) {
           </div>
         </div>
       )}
+
+      <div
+        aria-hidden
+        className={`pointer-events-none fixed inset-x-0 bottom-[12%] z-[7] mx-auto w-40 transition-opacity duration-300 ${holding ? "opacity-100" : "opacity-0"}`}
+      >
+        <div className="h-px overflow-hidden bg-gold-faint">
+          <div className="h-full bg-gold" style={{ animation: "loader 1.8s ease-in-out infinite" }} />
+        </div>
+      </div>
 
       <div
         aria-hidden

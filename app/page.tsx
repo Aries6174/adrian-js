@@ -1,3 +1,4 @@
+import { PageReady } from "@/components/PageReady";
 import { TravelLink } from "@/components/TravelLink";
 import { Eyebrow, FootNote, PageTitle, stagger } from "@/components/ui";
 
@@ -40,6 +41,7 @@ export default function IntroPage() {
       </blockquote>
 
       <FootNote lines={["Exploring", "Ideas", "Through", "Technology_"]} />
+      <PageReady path="/" />
     </main>
   );
 }

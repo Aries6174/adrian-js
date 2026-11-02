@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import { Suspense } from "react";
+import { PageReady } from "@/components/PageReady";
 import { TravelLink } from "@/components/TravelLink";
 import { Arrow, Eyebrow, Icon, PageTitle, stagger } from "@/components/ui";
 import { newestFirst } from "@/lib/content";
@@ -151,6 +152,7 @@ export default function HomePage() {
           </div>
           <Suspense fallback={<div className="h-[7.6rem]" />}>
             <FeaturedProjects />
+            <PageReady path="/home" />
           </Suspense>
         </section>
 
