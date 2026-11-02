@@ -942,7 +942,7 @@ export function Figure({
 
 const PANEL_FRAG = /* glsl */ `
 uniform sampler2D tMap;
-uniform float uHover,uDim,uTime,uFlicker;
+uniform float uHover,uDim,uTime,uFlicker,uFade;
 varying vec2 vUv;
 void main(){
   vec4 t=texture2D(tMap,vUv);
@@ -952,7 +952,7 @@ void main(){
   vec2 e=min(vUv,1.-vUv);
   float edge=smoothstep(.024,.0,min(e.x,e.y*1.45));
   col+=vec3(1.,.66,.28)*edge*(.28+uHover*1.6);
-  float a=max(t.a,.0)*mix(1.,.2,uDim);
+  float a=max(t.a,.0)*mix(1.,.2,uDim)*uFade;
   gl_FragColor=vec4(col*mix(1.,.22,uDim)*a,a);
 }`;
 
@@ -968,6 +968,7 @@ export function HoloPanel({
   onHover,
   bob = 0.06,
   phase = 0,
+  fade,
 }: {
   texture: THREE.Texture;
   position: [number, number, number];
@@ -980,6 +981,7 @@ export function HoloPanel({
   onHover?: (over: boolean) => void;
   bob?: number;
   phase?: number;
+  fade?: React.RefObject<number>;
 }) {
   const ref = useRef<THREE.Mesh>(null);
   const [over, setOver] = useState(false);
@@ -1002,6 +1004,7 @@ export function HoloPanel({
           uDim: { value: 0 },
           uTime,
           uFlicker: { value: 1 },
+          uFade: { value: 1 },
         },
       }),
     [texture],
@@ -1014,6 +1017,7 @@ export function HoloPanel({
     const uniforms = material.uniforms;
     uniforms.uHover.value += ((over ? 1 : hover) - uniforms.uHover.value) * k;
     uniforms.uDim.value += (dim - uniforms.uDim.value) * k;
+    if (fade) uniforms.uFade.value = fade.current;
     mesh.position.y = position[1] + Math.sin(uTime.value * 0.6 + phase) * bob;
     const grow = 1 + uniforms.uHover.value * 0.035;
     mesh.scale.set(width * grow, height * grow, 1);

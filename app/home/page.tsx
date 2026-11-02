@@ -1,8 +1,10 @@
 import type { Metadata } from "next";
 import Image from "next/image";
+import { Suspense } from "react";
 import { TravelLink } from "@/components/TravelLink";
 import { Arrow, Eyebrow, Icon, PageTitle, stagger } from "@/components/ui";
-import { projects } from "@/lib/content";
+import { newestFirst } from "@/lib/content";
+import { loadContent } from "@/lib/store";
 
 export const metadata: Metadata = { title: "The Cosmic Archive" };
 
@@ -14,28 +16,74 @@ const systemIndex = [
 ];
 
 const infoCards = [
-  {
-    title: "About Me",
-    icon: "world",
-    text: "A Computer and Information Science graduate building interactive and meaningful web experiences.",
-    cta: "Learn More",
-    href: "/about",
-  },
-  {
-    title: "Skills",
-    icon: "code",
-    text: "TypeScript, React, Next.js, Tailwind CSS. Learning Java, Python and PostgreSQL along the way.",
-    cta: "View Skills",
-    href: "/about#skills",
-  },
-  {
-    title: "Get in Touch",
-    icon: "mail",
-    text: "Open to new opportunities, collaborations and exciting projects.",
-    cta: "Let's Talk",
-    href: "/contact",
-  },
-];
+  { key: "about", title: "About Me", icon: "world", cta: "Learn More", href: "/about" },
+  { key: "skills", title: "Skills", icon: "code", cta: "View Skills", href: "/about#skills" },
+  { key: "contact", title: "Get in Touch", icon: "mail", cta: "Let's Talk", href: "/contact" },
+] as const;
+
+async function FeaturedProjects() {
+  const { projects } = await loadContent();
+  return (
+    <div className="grid gap-3 md:grid-cols-3 lg:gap-4">
+      {newestFirst(projects).slice(0, 3).map((project, index) => (
+        <TravelLink
+          key={project.id}
+          href="/projects"
+          className="hud-panel group relative block h-[7.6rem] overflow-hidden"
+        >
+          <Image
+            src={project.image}
+            alt=""
+            fill
+            sizes="(max-width: 768px) 100vw, 33vw"
+            className={`${project.fit === "contain" ? "object-contain opacity-90" : "object-cover opacity-50"} transition-all duration-700 group-hover:scale-105 group-hover:opacity-80`}
+            style={{ objectPosition: project.imagePosition ?? "center" }}
+          />
+          <span className="absolute inset-0 bg-gradient-to-r from-ink/95 via-ink/70 to-transparent" />
+          <span className="relative flex h-full flex-col justify-between p-3.5">
+            <span className="label flex items-center gap-2 text-soft">
+              0{index + 1} <span className="h-px w-4 bg-gold-line" />
+            </span>
+            <span>
+              <span className="display block text-[1.08rem] text-text">{project.headline[0]}</span>
+              <span className="mt-0.5 block text-[0.72rem] tracking-wider text-soft">{project.tagline}</span>
+              <span className="mt-1.5 flex gap-1.5">
+                {project.tags.slice(0, 3).map((tag) => (
+                  <span key={tag} className="border border-gold-faint px-1.5 py-px text-[0.56rem] uppercase tracking-widest text-soft">
+                    {tag}
+                  </span>
+                ))}
+              </span>
+            </span>
+          </span>
+          <span className="absolute bottom-3.5 right-3.5 flex size-9 items-center justify-center rounded-full border border-gold-line bg-ink/80 text-gold transition-colors group-hover:bg-gold group-hover:text-ink">
+            <Arrow className="w-3.5" />
+          </span>
+        </TravelLink>
+      ))}
+    </div>
+  );
+}
+
+async function InfoCards() {
+  const { home } = await loadContent();
+  return (
+    <section className="hud-panel rise mt-3 grid divide-gold-faint md:grid-cols-3 md:divide-x lg:mt-4" style={stagger(6)}>
+      {infoCards.map((card) => (
+        <div key={card.key} className="flex gap-4 p-3 lg:px-5">
+          <Icon name={card.icon} className="mt-0.5 size-8 shrink-0 text-gold" />
+          <div className="min-w-0 flex-1">
+            <h2 className="label text-text">{card.title}</h2>
+            <p className="mt-1 text-[0.72rem] leading-[1.5] tracking-wide text-soft">{home[card.key]}</p>
+            <TravelLink href={card.href} className="label mt-0.5 flex items-center justify-end gap-2 text-[0.62rem] text-gold transition-colors hover:text-gold-bright">
+              {card.cta} <Arrow className="w-4" />
+            </TravelLink>
+          </div>
+        </div>
+      ))}
+    </section>
+  );
+}
 
 export default function HomePage() {
   return (
@@ -101,60 +149,14 @@ export default function HomePage() {
               View all projects <Arrow className="w-4" />
             </TravelLink>
           </div>
-          <div className="grid gap-3 md:grid-cols-3 lg:gap-4">
-            {projects.slice(0, 3).map((project, index) => (
-              <TravelLink
-                key={project.id}
-                href="/projects"
-                className="hud-panel group relative block h-[7.6rem] overflow-hidden"
-              >
-                <Image
-                  src={project.image}
-                  alt=""
-                  fill
-                  sizes="(max-width: 768px) 100vw, 33vw"
-                  className={`${project.fit === "contain" ? "object-contain opacity-90" : "object-cover opacity-50"} transition-all duration-700 group-hover:scale-105 group-hover:opacity-80`}
-                  style={{ objectPosition: project.imagePosition ?? "center" }}
-                />
-                <span className="absolute inset-0 bg-gradient-to-r from-ink/95 via-ink/70 to-transparent" />
-                <span className="relative flex h-full flex-col justify-between p-3.5">
-                  <span className="label flex items-center gap-2 text-soft">
-                    0{index + 1} <span className="h-px w-4 bg-gold-line" />
-                  </span>
-                  <span>
-                    <span className="display block text-[1.08rem] text-text">{project.headline[0]}</span>
-                    <span className="mt-0.5 block text-[0.72rem] tracking-wider text-soft">{project.tagline}</span>
-                    <span className="mt-1.5 flex gap-1.5">
-                      {project.tags.slice(0, 3).map((tag) => (
-                        <span key={tag} className="border border-gold-faint px-1.5 py-px text-[0.56rem] uppercase tracking-widest text-soft">
-                          {tag}
-                        </span>
-                      ))}
-                    </span>
-                  </span>
-                </span>
-                <span className="absolute bottom-3.5 right-3.5 flex size-9 items-center justify-center rounded-full border border-gold-line bg-ink/80 text-gold transition-colors group-hover:bg-gold group-hover:text-ink">
-                  <Arrow className="w-3.5" />
-                </span>
-              </TravelLink>
-            ))}
-          </div>
+          <Suspense fallback={<div className="h-[7.6rem]" />}>
+            <FeaturedProjects />
+          </Suspense>
         </section>
 
-        <section className="hud-panel rise mt-3 grid divide-gold-faint md:grid-cols-3 md:divide-x lg:mt-4" style={stagger(6)}>
-          {infoCards.map((card) => (
-            <div key={card.title} className="flex gap-4 p-3 lg:px-5">
-              <Icon name={card.icon} className="mt-0.5 size-8 shrink-0 text-gold" />
-              <div className="min-w-0 flex-1">
-                <h2 className="label text-text">{card.title}</h2>
-                <p className="mt-1 text-[0.72rem] leading-[1.5] tracking-wide text-soft">{card.text}</p>
-                <TravelLink href={card.href} className="label mt-0.5 flex items-center justify-end gap-2 text-[0.62rem] text-gold transition-colors hover:text-gold-bright">
-                  {card.cta} <Arrow className="w-4" />
-                </TravelLink>
-              </div>
-            </div>
-          ))}
-        </section>
+        <Suspense fallback={<div className="mt-3 h-[6.1rem] lg:mt-4" />}>
+          <InfoCards />
+        </Suspense>
       </div>
     </main>
   );

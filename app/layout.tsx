@@ -1,6 +1,10 @@
 import type { Metadata, Viewport } from "next";
 import { Barlow, Cormorant_Garamond, Rajdhani } from "next/font/google";
+import { Suspense } from "react";
+import { ContentBridge } from "@/components/ContentBridge";
 import { SiteShell } from "@/components/SiteShell";
+import { newestFirst } from "@/lib/content";
+import { loadContent } from "@/lib/store";
 import "./globals.css";
 
 const display = Rajdhani({
@@ -34,6 +38,11 @@ export const viewport: Viewport = {
   themeColor: "#050403",
 };
 
+async function ContentLoader() {
+  const { projects } = await loadContent();
+  return <ContentBridge projects={newestFirst(projects)} />;
+}
+
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
@@ -41,7 +50,12 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       className={`${display.variable} ${body.variable} ${quote.variable} antialiased`}
     >
       <body>
-        <SiteShell>{children}</SiteShell>
+        <SiteShell>
+          <Suspense fallback={null}>
+            <ContentLoader />
+          </Suspense>
+          {children}
+        </SiteShell>
       </body>
     </html>
   );

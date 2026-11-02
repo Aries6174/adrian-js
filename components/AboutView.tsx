@@ -1,9 +1,9 @@
 "use client";
 
 import Image from "next/image";
-import type { ReactNode } from "react";
+import type { CSSProperties, ReactNode } from "react";
 import { useEffect, useRef } from "react";
-import { aboutSections, interests, journey, techStack } from "@/lib/content";
+import { type About, aboutSections } from "@/lib/content";
 import { setStage, useStage } from "@/lib/stage";
 import { Arrow, Eyebrow, FootNote, Icon, PageTitle, SectionLabel, stagger } from "./ui";
 
@@ -21,13 +21,13 @@ function Panel({
   children: ReactNode;
 }) {
   return (
-    <section id={id} data-active={active} className={`hud-panel slide-left scroll-mt-24 ${className}`} style={stagger(step)}>
+    <section id={id} data-active={active} className={`hud-panel about-panel slide-left scroll-mt-24 ${className}`} style={stagger(step)}>
       {children}
     </section>
   );
 }
 
-export function AboutView() {
+export function AboutView({ about }: { about: About }) {
   const section = useStage((s) => s.aboutSection);
   const firstRun = useRef(true);
   const sectionId = aboutSections[section].id;
@@ -79,24 +79,21 @@ export function AboutView() {
           <div>
             <SectionLabel no="01">Who am I</SectionLabel>
             <h2 className="display mt-2.5 text-[1.25rem] leading-[1.28] text-gold">
-              A developer who turns ideas into experiences.
+              {about.heading}
             </h2>
-            <p className="copy mt-2">
-              I&apos;m Adrian, a Computer and Information Science graduate who
-              enjoys building interactive and meaningful web experiences. I like
-              combining technology, design, and storytelling to create projects
-              that feel unique and engaging.
-            </p>
+            <p className="copy mt-2">{about.body}</p>
           </div>
           <div className="border-gold-faint md:border-l md:pl-5">
             <div className="relative aspect-[16/7] overflow-hidden border border-gold-faint">
-              <Image src="/art/world.webp" alt="A black hole over a dark sea, rendered in real time" fill sizes="(max-width: 768px) 100vw, 17vw" className="object-cover" />
+              <Image src={about.image} alt={about.imageAlt} fill sizes="(max-width: 768px) 100vw, 17vw" className="object-cover" />
             </div>
             <div className="mt-3 flex items-end justify-between">
               <p className="label text-[0.66rem] leading-[1.5] text-soft">
-                Somewhere between
-                <br />
-                code and the stars
+                {about.caption.map((line) => (
+                  <span key={line} className="block">
+                    {line}
+                  </span>
+                ))}
               </p>
               <Arrow className="w-5 text-gold" />
             </div>
@@ -107,13 +104,13 @@ export function AboutView() {
           <Panel id="skills" active={section === 2} step={3} className="p-4">
             <SectionLabel no="02">Tech stack</SectionLabel>
             <ul className="mt-3 grid grid-cols-4 gap-x-2 gap-y-2.5">
-              {techStack.map((tech) => (
+              {about.techStack.map((tech) => (
                 <li key={tech.name} className="group text-center">
                   <span className="mx-auto flex size-[3.1rem] items-center justify-center border border-gold-faint bg-black/25 text-gold transition-all group-hover:border-gold group-hover:shadow-[0_0_1rem_rgb(236_182_95_/_0.25)]">
                     <Icon name={tech.icon} className="size-6" />
                   </span>
                   <span className="mt-1 block text-[0.66rem] leading-tight tracking-wide text-soft">{tech.name}</span>
-                  {"note" in tech && <span className="block text-[0.6rem] leading-tight text-muted">({tech.note})</span>}
+                  {tech.note && <span className="block text-[0.6rem] leading-tight text-muted">({tech.note})</span>}
                 </li>
               ))}
             </ul>
@@ -123,27 +120,39 @@ export function AboutView() {
             <SectionLabel no="03">Education</SectionLabel>
             <div className="mt-3 flex gap-4">
               <div className="relative w-[7.2rem] shrink-0 overflow-hidden border border-gold-faint">
-                <Image src="/art/campus.webp" alt="The Oblation statue at the University of the Philippines Visayas" fill sizes="10vw" className="object-cover" />
-                <span className="absolute inset-x-0 bottom-0 bg-ink/80 px-1.5 py-1 text-[0.52rem] leading-snug tracking-wide text-soft">
-                  Photo: Marcos Caratao Jr. / exploreiloilo.com
-                </span>
+                <Image src={about.education.image} alt={about.education.imageAlt} fill sizes="10vw" className="object-cover" />
+                {about.education.credit &&
+                  (about.education.creditLink ? (
+                    <a
+                      href={about.education.creditLink}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="absolute inset-x-0 bottom-0 bg-ink/80 px-1.5 py-1 text-[0.52rem] leading-snug tracking-wide text-soft underline hover:text-gold"
+                    >
+                      {about.education.credit}
+                    </a>
+                  ) : (
+                    <span className="absolute inset-x-0 bottom-0 bg-ink/80 px-1.5 py-1 text-[0.52rem] leading-snug tracking-wide text-soft">
+                      {about.education.credit}
+                    </span>
+                  ))}
               </div>
               <div className="min-w-0 py-1">
-                <h3 className="display text-[0.92rem] tracking-[0.1em] text-text">BS Computer and Information Science</h3>
+                <h3 className="display text-[0.92rem] tracking-[0.1em] text-text">{about.education.degree}</h3>
                 <p className="mt-2 text-[0.72rem] leading-[1.6] tracking-wide text-soft">
-                  University of the Philippines Visayas
+                  {about.education.school}
                   <br />
-                  Miagao, Iloilo
+                  {about.education.place}
                   <br />
-                  2022 - 2026
+                  {about.education.years}
                 </p>
                 <span className="rule my-3" />
                 <p className="text-[0.72rem] leading-[1.6] tracking-wide text-muted">
-                  Senior High School (STEM)
+                  {about.education.earlierTitle}
                   <br />
-                  University of the East Manila
+                  {about.education.earlierSchool}
                   <br />
-                  2020 - 2022
+                  {about.education.earlierYears}
                 </p>
               </div>
             </div>
@@ -152,14 +161,17 @@ export function AboutView() {
 
         <Panel id="journey" active={section === 3} step={5} className="p-4">
           <SectionLabel no="04">Journey</SectionLabel>
-          <ol className="relative mt-3 grid grid-cols-2 gap-y-4 sm:grid-cols-5">
+          <ol
+            className="relative mt-3 grid grid-cols-2 gap-y-4 sm:[grid-template-columns:repeat(var(--steps),minmax(0,1fr))]"
+            style={{ "--steps": Math.max(1, about.journey.length) } as CSSProperties}
+          >
             <span aria-hidden className="absolute inset-x-0 top-[0.27rem] hidden h-px bg-gold-line sm:block" />
-            {journey.map((event) => (
-              <li key={event.year} className="relative">
+            {about.journey.map((event, index) => (
+              <li key={index} className="relative">
                 <span className="relative block size-[0.55rem] rounded-full bg-gold shadow-[0_0_0.6rem_var(--gold)]" />
                 <p className="display mt-2 text-[0.84rem] tracking-[0.12em] text-text">{event.year}</p>
-                {event.lines.map((line) => (
-                  <p key={line} className="text-[0.68rem] leading-[1.45] tracking-wide text-soft">
+                {event.lines.map((line, lineIndex) => (
+                  <p key={lineIndex} className="text-[0.68rem] leading-[1.45] tracking-wide text-soft">
                     {line}
                   </p>
                 ))}
@@ -172,7 +184,7 @@ export function AboutView() {
           <div>
             <SectionLabel no="05">Interests</SectionLabel>
             <ul className="mt-3 flex justify-between gap-2">
-              {interests.map((interest) => (
+              {about.interests.map((interest) => (
                 <li key={interest.name} className="text-center text-gold">
                   <Icon name={interest.icon} className="mx-auto size-7" />
                   <span className="mt-1.5 block text-[0.68rem] tracking-wide text-soft">{interest.name}</span>
@@ -181,7 +193,7 @@ export function AboutView() {
             </ul>
           </div>
           <blockquote className="label border-gold-faint text-[0.72rem] leading-[1.75] text-soft md:border-l md:pl-5">
-            &ldquo;Exploring worlds both real and imagined through technology.&rdquo;
+            &ldquo;{about.quote}&rdquo;
             <span className="rule mt-2" />
           </blockquote>
         </Panel>

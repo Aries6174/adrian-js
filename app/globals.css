@@ -169,6 +169,36 @@ body {
     border-right-width: 1px;
     border-bottom-width: 1px;
   }
+  .hud-panel.about-panel {
+    transition:
+      border-color 320ms ease,
+      box-shadow 320ms ease;
+  }
+  .hud-panel.about-panel[data-active="true"] {
+    border-color: var(--gold-bright);
+    box-shadow:
+      0 0 0 1px var(--gold),
+      0 0 1.1rem rgb(255 200 115 / 0.5),
+      0 0 3.4rem rgb(236 182 95 / 0.28),
+      0 1.2rem 2.6rem rgb(0 0 0 / 0.38),
+      inset 0 0 2.4rem rgb(236 182 95 / 0.09);
+  }
+  .hud-panel.about-panel[data-active="true"]::before,
+  .hud-panel.about-panel[data-active="true"]::after {
+    width: 1.5rem;
+    height: 1.5rem;
+    border-color: var(--gold-bright);
+  }
+  .hud-panel.about-panel[data-active="true"]::before {
+    border-top-width: 3px;
+    border-left-width: 3px;
+    filter: drop-shadow(0 0 0.35rem var(--gold-bright));
+  }
+  .hud-panel.about-panel[data-active="true"]::after {
+    border-right-width: 3px;
+    border-bottom-width: 3px;
+    filter: drop-shadow(0 0 0.35rem var(--gold-bright));
+  }
   .hud-panel[data-active="true"] {
     border-color: var(--gold-line);
     box-shadow:

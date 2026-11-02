@@ -5,21 +5,24 @@ import { useEffect, useState } from "react";
 import { navItems } from "@/lib/content";
 import { TravelLink } from "./TravelLink";
 
-function utcClock() {
-  return new Date().toISOString().slice(11, 16);
-}
+const manilaTime = new Intl.DateTimeFormat("en-US", {
+  timeZone: "Asia/Manila",
+  hour: "numeric",
+  minute: "2-digit",
+  hour12: true,
+});
 
 function Clock() {
   const [time, setTime] = useState<string | null>(null);
 
   useEffect(() => {
-    const update = () => setTime(utcClock());
+    const update = () => setTime(manilaTime.format(new Date()));
     update();
     const id = window.setInterval(update, 5000);
     return () => window.clearInterval(id);
   }, []);
 
-  return <span className="tabular-nums">{time ?? "--:--"} UTC</span>;
+  return <span className="tabular-nums">{time ?? "--:--"} PHT</span>;
 }
 
 export function Header() {
@@ -61,7 +64,7 @@ export function Header() {
       </nav>
 
       <div className="label ml-auto flex items-center gap-4 text-soft max-sm:hidden">
-        <span>Reykjavík, IS</span>
+        <span>Philippines</span>
         <span className="size-1 rounded-full bg-gold" />
         <Clock />
       </div>

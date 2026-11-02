@@ -1,6 +1,7 @@
 "use client";
 
 import { useSyncExternalStore } from "react";
+import type { Project } from "./content";
 
 export type SceneId = "intro" | "hall" | "projects" | "about" | "contact";
 
@@ -8,6 +9,8 @@ export const WARP_IN = 600;
 export const WARP_OUT = 900;
 /** How long the previous world lingers as it dissolves into the next. */
 export const SCENE_FADE = 800;
+/** How many project panels fit in the 3D scene at once. */
+export const PROJECTS_IN_VIEW = 5;
 
 type StageState = {
   scene: SceneId;
@@ -15,7 +18,9 @@ type StageState = {
   leaving: boolean;
   ready: boolean;
   webgl: boolean;
-  project: number;
+  projects: Project[];
+  projectId: string | null;
+  projectScroll: number;
   filter: string;
   aboutSection: number;
 };
@@ -28,7 +33,9 @@ let state: StageState = {
   leaving: false,
   ready: false,
   webgl: true,
-  project: 0,
+  projects: [],
+  projectId: null,
+  projectScroll: 0,
   filter: "all",
   aboutSection: 0,
 };

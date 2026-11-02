@@ -193,9 +193,15 @@ export function projectPanelTexture(
       ctx.font = `500 36px ${display}`;
       tracked(ctx, no, 34, 56, 3);
       ctx.fillStyle = PALE;
-      const size = title.length > 22 ? 30 : 36;
+      const heading = title.toUpperCase();
+      let size = 36;
+      ctx.letterSpacing = "4px";
       ctx.font = `600 ${size}px ${display}`;
-      tracked(ctx, title.toUpperCase(), 34, 104, 4);
+      while (size > 16 && ctx.measureText(heading).width > w - 68) {
+        size -= 2;
+        ctx.font = `600 ${size}px ${display}`;
+      }
+      tracked(ctx, heading, 34, 104, 4);
 
       const ix = 34;
       const iy = 128;

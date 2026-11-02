@@ -50,6 +50,8 @@ export function SiteShell({ children }: { children: ReactNode }) {
     return () => window.clearTimeout(id);
   }, []);
 
+  if (pathname.startsWith("/admin")) return <>{children}</>;
+
   const isIntro = sceneForPath(pathname) === "intro";
 
   return (

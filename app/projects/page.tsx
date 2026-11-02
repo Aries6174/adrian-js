@@ -1,5 +1,8 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import { ProjectsView } from "@/components/ProjectsView";
+import { newestFirst } from "@/lib/content";
+import { loadContent } from "@/lib/store";
 
 export const metadata: Metadata = {
   title: "Projects",
@@ -7,6 +10,15 @@ export const metadata: Metadata = {
     "Worlds built through code: Elvicor Management System, UP: Visions and other projects by Adrian Jaspa.",
 };
 
+async function ProjectsContent() {
+  const { projects } = await loadContent();
+  return <ProjectsView projects={newestFirst(projects)} />;
+}
+
 export default function ProjectsPage() {
-  return <ProjectsView />;
+  return (
+    <Suspense fallback={null}>
+      <ProjectsContent />
+    </Suspense>
+  );
 }
