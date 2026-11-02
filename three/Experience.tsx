@@ -1,15 +1,17 @@
 "use client";
 
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import { useEffect, useMemo, useRef } from "react";
+import { memo, useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import { EffectComposer } from "three/examples/jsm/postprocessing/EffectComposer.js";
 import { RenderPass } from "three/examples/jsm/postprocessing/RenderPass.js";
+import { SavePass } from "three/examples/jsm/postprocessing/SavePass.js";
 import { ShaderPass } from "three/examples/jsm/postprocessing/ShaderPass.js";
 import { UnrealBloomPass } from "three/examples/jsm/postprocessing/UnrealBloomPass.js";
 import {
   getStage,
   prepareScene,
+  SCENE_FADE,
   type SceneId,
   setStage,
   useStage,
@@ -72,9 +74,9 @@ function Director() {
       eye.x += damped.x * pose.parallax[0] + Math.sin(t * 0.13) * pose.parallax[0] * 0.25;
       eye.y += -damped.y * pose.parallax[1] + Math.sin(t * 0.17) * pose.parallax[1] * 0.2;
     }
-    if (leaving) eye.lerp(hole, warp * 0.18);
+    if (leaving) eye.lerp(hole, warp * 0.03);
     lookAt.set(...target);
-    if (leaving) lookAt.lerp(hole, warp * 0.9);
+    if (leaving) lookAt.lerp(hole, warp * 0.12);
 
     camera.position.copy(eye);
     camera.lookAt(lookAt);
@@ -82,7 +84,7 @@ function Director() {
     // Wider screens keep the vertical framing, narrow ones keep the horizontal.
     const narrow = Math.min(1.75, Math.max(1, 16 / 9 / aspect));
     const halfFov = Math.tan(THREE.MathUtils.degToRad(pose.fov / 2)) * narrow;
-    const warpZoom = leaving ? 1 - warp * 0.55 : 1 + warp * 0.6;
+    const warpZoom = leaving ? 1 - warp * 0.1 : 1 + warp * 0.08;
     camera.fov = THREE.MathUtils.radToDeg(Math.atan(halfFov)) * 2 * warpZoom;
     camera.updateProjectionMatrix();
     camera.updateMatrixWorld();
@@ -102,6 +104,8 @@ const GRADE = {
   uniforms: {
     ...noiseUniforms,
     tDiffuse: { value: null },
+    tPrevious: { value: null as THREE.Texture | null },
+    uFade: { value: 0 },
     uWarp: { value: 0 },
     uCenter: { value: warpCenter },
     uAspect: { value: 1.78 },
@@ -112,6 +116,8 @@ const GRADE = {
     void main(){ vUv=uv; gl_Position=vec4(position.xy,0.,1.); }`,
   fragmentShader: /* glsl */ `
     uniform sampler2D tDiffuse;
+    uniform sampler2D tPrevious;
+    uniform float uFade;
     uniform float uWarp;
     uniform vec2 uCenter;
     uniform float uAspect;
@@ -119,27 +125,29 @@ const GRADE = {
     varying vec2 vUv;
     ${NOISE_GLSL}
     vec3 aces(vec3 x){ return clamp((x*(2.51*x+.03))/(x*(2.43*x+.59)+.14),0.,1.); }
+    // A short radial smear. It stays well away from the centre so it never averages down
+    // into the hole's black shadow, which keeps overall brightness steady.
+    vec3 smeared(sampler2D map,vec2 d,float pull){
+      vec3 c=vec3(0.);
+      for(int i=0;i<10;i++){
+        c+=textureLod(map,uCenter+d*(1.-pull*float(i)/9.),0.).rgb;
+      }
+      return c/10.;
+    }
     void main(){
       vec2 d=vUv-uCenter;
-      vec3 col;
-      if(uWarp>.002){
-        // Space collapses toward the hole: a long radial smear that grows with the warp.
-        col=vec3(0.);
-        float pull=uWarp*uWarp*.92;
-        for(int i=0;i<16;i++){
-          float t=float(i)/15.;
-          col+=texture2D(tDiffuse,uCenter+d*(1.-pull*t)).rgb;
-        }
-        col/=16.;
-        vec2 ad=d*vec2(uAspect,1.);
-        float r=length(ad);
-        float a=atan(ad.y,ad.x);
-        float streak=pow(vnoise(vec2(a*34.,uTime*.7)),7.)+.5*pow(vnoise(vec2(a*90.,-uTime)),9.);
-        col+=vec3(1.,.66,.3)*streak*smoothstep(.0,.55,r)*uWarp*uWarp*9.;
-        col+=vec3(1.,.72,.42)*pow(uWarp,5.)*3.2;
-      }else{
-        col=texture2D(tDiffuse,vUv).rgb;
+      float pull=uWarp*.26;
+      vec3 col=uWarp>.002?smeared(tDiffuse,d,pull):texture2D(tDiffuse,vUv).rgb;
+      if(uFade>.002){
+        col=mix(col,smeared(tPrevious,d,pull),uFade);
       }
+      if(uWarp>.002){
+        vec2 ad=d*vec2(uAspect,1.);
+        float a=atan(ad.y,ad.x);
+        float streak=pow(vnoise(vec2(a*34.,uTime*.7)),7.);
+        col+=vec3(1.,.66,.3)*streak*smoothstep(.15,.6,length(ad))*uWarp*uWarp*.3;
+      }
+      col*=1.-uWarp*.42;
       // Warm split-tone with deep blacks, like the reference renders.
       col=aces(col*1.08);
       float luma=dot(col,vec3(.2126,.7152,.0722));
@@ -171,12 +179,21 @@ function PostFX() {
   const gl = useThree((s) => s.gl);
   const scene = useThree((s) => s.scene);
   const camera = useThree((s) => s.camera);
-  const size = useThree((s) => s.size);
-  const dpr = useThree((s) => s.viewport.dpr);
-  const setDpr = useThree((s) => s.setDpr);
-  const frames = useRef({ count: 0, spent: 0, first: true });
+  const run = useRef({
+    first: true,
+    scene: getStage().scene,
+    fadeStart: -Infinity,
+    settleUntil: 0,
+    count: 0,
+    spent: 0,
+    tick: 0,
+    width: 0,
+    height: 0,
+    pixelRatio: 0,
+    quality: Infinity,
+  });
 
-  const { composer, grade } = useMemo(() => {
+  const { composer, grade, snapshot } = useMemo(() => {
     const target = new THREE.WebGLRenderTarget(4, 4, {
       type: THREE.HalfFloatType,
       samples: 2,
@@ -185,37 +202,76 @@ function PostFX() {
     composer.addPass(new RenderPass(scene, camera));
     composer.addPass(new ShaderPass(CLAMP));
     composer.addPass(new UnrealBloomPass(new THREE.Vector2(4, 4), 0.07, 0.55, 1));
+    const snapshot = new SavePass();
+    composer.addPass(snapshot);
     // Passing a material keeps the shared uniforms; a plain object would be cloned.
     const grade = new ShaderPass(new THREE.ShaderMaterial(GRADE));
+    grade.uniforms.tPrevious.value = snapshot.renderTarget.texture;
     composer.addPass(grade);
-    return { composer, grade };
+    return { composer, grade, snapshot };
   }, [gl, scene, camera]);
 
-  useEffect(() => {
-    composer.setPixelRatio(dpr);
-    composer.setSize(size.width, size.height);
-    grade.uniforms.uAspect.value = size.width / size.height;
-  }, [composer, grade, size, dpr]);
+  useFrame((state, delta) => {
+    const r = run.current;
+    const now = performance.now();
+    const stage = getStage();
 
-  useFrame((_, delta) => {
-    grade.uniforms.uWarp.value = warpAmount();
+    // Any change of world dissolves from the last saved frame, including back and forward.
+    if (stage.scene !== r.scene) {
+      r.scene = stage.scene;
+      if (stage.ready) r.fadeStart = now;
+      r.settleUntil = now + SCENE_FADE + 1500;
+      r.count = 0;
+      r.spent = 0;
+    }
+    // A stall while a world is built should not use up the dissolve.
+    if (delta > 0.1 && now - r.fadeStart < SCENE_FADE) r.fadeStart += delta * 1000;
+    const left = THREE.MathUtils.clamp(1 - (now - r.fadeStart) / SCENE_FADE, 0, 1);
+    const fade = left * left * (3 - 2 * left);
+    const warp = warpAmount(now);
+
+    const { size, viewport } = state.get();
+
+    // Trade resolution for smoothness on slower GPUs. Only the internal buffers change: the
+    // canvas keeps its size, because resizing it would clear it and show a black frame.
+    // One-off hitches and throttled tabs say nothing about the GPU.
+    const measurable = !r.first && fade === 0 && warp === 0 && now > r.settleUntil;
+    if (measurable && delta < 0.2 && !document.hidden && document.hasFocus()) {
+      r.count += 1;
+      r.spent += delta;
+      if (r.count >= 90) {
+        const average = r.spent / r.count;
+        const current = Math.min(viewport.dpr, r.quality);
+        r.count = 0;
+        r.spent = 0;
+        if (average > 0.03 && current > 0.8) {
+          r.quality = Math.max(0.8, current - 0.25);
+          r.settleUntil = now + 2000;
+        }
+      }
+    }
+
+    const pixelRatio = Math.min(viewport.dpr, r.quality);
+    if (size.width !== r.width || size.height !== r.height || pixelRatio !== r.pixelRatio) {
+      r.width = size.width;
+      r.height = size.height;
+      r.pixelRatio = pixelRatio;
+      composer.setPixelRatio(pixelRatio);
+      composer.setSize(size.width, size.height);
+      grade.uniforms.uAspect.value = size.width / size.height;
+      // Resizing empties the saved frame, so refill it right away.
+      r.tick = 7;
+    }
+
+    r.tick += 1;
+    snapshot.enabled = fade === 0 && (warpIsLeaving(now) || r.tick % 8 === 0);
+    grade.uniforms.uFade.value = fade;
+    grade.uniforms.uWarp.value = warp;
     composer.render(delta);
 
-    const stats = frames.current;
-    if (stats.first) {
-      stats.first = false;
+    if (r.first) {
+      r.first = false;
       setStage({ ready: true });
-    }
-    // Trade resolution for smoothness on slower GPUs.
-    // One-off hitches (a world being built) and throttled background tabs say nothing about the GPU.
-    if (delta > 0.2 || document.hidden || !document.hasFocus()) return;
-    stats.count += 1;
-    stats.spent += delta;
-    if (stats.count >= 50) {
-      const average = stats.spent / stats.count;
-      stats.count = 0;
-      stats.spent = 0;
-      if (average > 0.03 && dpr > 0.8) setDpr(Math.max(0.8, dpr - 0.25));
     }
   }, 1);
 
@@ -246,12 +302,15 @@ function Worlds() {
   );
 }
 
-export default function Experience() {
+/** A fixed ratio: changing it later would resize the canvas, which blanks a frame. */
+const CANVAS_DPR = Math.min(window.devicePixelRatio || 1, 1.6);
+
+export default memo(function Experience() {
   return (
     <div aria-hidden className="fixed inset-0 z-0">
       <Canvas
         flat
-        dpr={[1, 1.6]}
+        dpr={CANVAS_DPR}
         camera={{ fov: 38, near: 0.1, far: 3000, position: [0, 2, 20] }}
         gl={{ antialias: false, alpha: false, powerPreference: "high-performance", stencil: false }}
       >
@@ -262,4 +321,4 @@ export default function Experience() {
       </Canvas>
     </div>
   );
-}
+});

@@ -161,11 +161,11 @@ export function Railing({
       const a = from + (i / posts) * arc;
       items.push([center[0] + Math.cos(a) * radius, y / 2, center[1] + Math.sin(a) * radius, 0.05, y, 0.05, -a]);
     }
-    return { material, items, lower: glow("#ffb65f", 4.2) };
+    return { material, items, lower: glow("#ffb65f", 1.5) };
   }, [world, radius, center, y, from, arc, posts]);
 
-  // Torus arcs run counter-clockwise in their own plane; flipping them to the floor mirrors z.
-  const rotation: [number, number, number] = [-Math.PI / 2, 0, from];
+  // Lays the torus flat so its angles match the posts: x = cos, z = sin.
+  const rotation: [number, number, number] = [Math.PI / 2, 0, from];
   return (
     <group>
       <Boxes items={items} material={material} />
@@ -174,9 +174,6 @@ export function Railing({
       </mesh>
       <mesh position={[center[0], y * 0.42, center[1]]} rotation={rotation} material={lower}>
         <torusGeometry args={[radius, 0.017, 6, 150, arc]} />
-      </mesh>
-      <mesh position={[center[0], 0.06, center[1]]} rotation={rotation} material={lower}>
-        <torusGeometry args={[radius - 0.1, 0.035, 6, 150, arc]} />
       </mesh>
     </group>
   );

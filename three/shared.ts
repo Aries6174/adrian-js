@@ -209,14 +209,15 @@ void main(){
   vec3 albedo=uColor*vTint;
   float wet=1.;
   #ifdef DETAIL
+    float lod=1./(1.+length(cameraPosition-vW)*uDetail*.035);
     vec3 q=vW*uDetail;
     float n0=fbm3(q);
     float e=.14;
     vec3 g=vec3(fbm3(q+vec3(e,0,0))-n0,fbm3(q+vec3(0,e,0))-n0,fbm3(q+vec3(0,0,e))-n0)/e;
-    N=normalize(N-g*uBump);
-    albedo*=.55+n0*.95;
+    N=normalize(N-g*uBump*lod);
+    albedo*=mix(1.,.55+n0*.95,lod);
     albedo=mix(albedo,uAccent,smoothstep(.45,.82,N.y)*smoothstep(.42,.62,vnoise3(q*.55+7.))*.75);
-    wet=pow(vnoise3(q*1.7),3.)*7.;
+    wet=mix(.6,pow(vnoise3(q*1.7),3.)*7.,lod);
   #endif
   vec3 col=albedo*uAmbient*(.55+.45*N.y);
   for(int i=0;i<4;i++){

@@ -4,8 +4,10 @@ import { useSyncExternalStore } from "react";
 
 export type SceneId = "intro" | "hall" | "projects" | "about" | "contact";
 
-export const WARP_IN = 750;
-export const WARP_OUT = 1050;
+export const WARP_IN = 600;
+export const WARP_OUT = 900;
+/** How long the previous world lingers as it dissolves into the next. */
+export const SCENE_FADE = 800;
 
 type StageState = {
   scene: SceneId;
@@ -76,12 +78,8 @@ export function registerNavigate(fn: Navigate) {
 export function warpAmount(now = performance.now()) {
   const t = now - warpStart;
   if (t < 0 || t > WARP_IN + WARP_OUT) return 0;
-  if (t < WARP_IN) {
-    const k = t / WARP_IN;
-    return k * k * k;
-  }
-  const k = 1 - (t - WARP_IN) / WARP_OUT;
-  return k * k;
+  const k = t < WARP_IN ? t / WARP_IN : 1 - (t - WARP_IN) / WARP_OUT;
+  return k * k * (3 - 2 * k);
 }
 
 export function warpIsLeaving(now = performance.now()) {
@@ -108,7 +106,9 @@ export function travel(href: string) {
   warpStart = performance.now();
   setStage({ leaving: true });
   window.setTimeout(() => {
-    setStage({ scene: target, leaving: false });
+    setStage({ scene: target });
     navigate(href);
+    // The route change normally ends this first; never leave the page hidden.
+    window.setTimeout(() => setStage({ leaving: false }), 1500);
   }, WARP_IN);
 }

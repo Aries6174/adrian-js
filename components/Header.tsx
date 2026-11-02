@@ -26,7 +26,7 @@ export function Header() {
   const pathname = usePathname();
 
   return (
-    <header className="site-header fixed inset-x-0 top-0 z-20 flex flex-wrap items-center gap-x-10 gap-y-2 px-[var(--gutter)] py-4 transition-opacity duration-300 lg:h-[5.4rem] lg:flex-nowrap lg:py-0 lg:pl-[calc(var(--gutter)+1.5rem)] max-lg:bg-gradient-to-b max-lg:from-ink/90 max-lg:to-transparent">
+    <header className="site-header fixed inset-x-0 top-0 z-20 flex flex-wrap items-center gap-x-10 gap-y-2 px-[var(--gutter)] py-4 lg:h-[5.4rem] lg:flex-nowrap lg:py-0 lg:pl-[calc(var(--gutter)+1.5rem)] max-lg:bg-gradient-to-b max-lg:from-ink/90 max-lg:to-transparent">
       <TravelLink
         href="/"
         aria-label="ADRIAN.JS, back to the introduction"

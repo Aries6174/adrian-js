@@ -85,8 +85,7 @@ body {
   .page .hud-panel {
     pointer-events: auto;
   }
-  [data-leaving="true"] .page,
-  [data-leaving="true"] .site-header {
+  [data-leaving="true"] .page {
     opacity: 0;
   }
 

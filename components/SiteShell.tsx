@@ -37,7 +37,7 @@ export function SiteShell({ children }: { children: ReactNode }) {
 
   // Keeps the world in step with back/forward and direct links.
   useEffect(() => {
-    setStage({ scene: sceneForPath(pathname) });
+    setStage({ scene: sceneForPath(pathname), leaving: false });
   }, [pathname]);
 
   useEffect(() => {

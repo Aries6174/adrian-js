@@ -9,10 +9,10 @@ import {
   fbm,
   glow,
   NOISE_GLSL,
-  noise3,
   noiseUniforms,
   ridged,
   seeded,
+  smoothstep,
   surface,
   uTime,
   type World,
@@ -648,21 +648,24 @@ export function Mountains({
   to?: number;
 }) {
   const { geometry, material } = useMemo(() => {
-    const columns = 520;
-    const rows = 22;
+    const columns = 760;
+    const rows = 56;
+    const scale = height * 3.2;
     const vertices: number[] = [];
     const indices: number[] = [];
     for (let r = 0; r <= rows; r++) {
       const v = r / rows;
+      const distance = radius * (0.84 + v * 0.34);
+      // Rises from the valley, peaks along the range, then falls away behind it.
+      const profile = smoothstep(0, 0.45, v) * smoothstep(1, 0.7, v);
       for (let c = 0; c <= columns; c++) {
         const a = from + (c / columns) * (to - from);
-        const ca = Math.cos(a);
-        const sa = Math.sin(a);
-        const rise = ridged(ca * 4 + seed, sa * 4, seed * 3, 5);
-        const peak = height * Math.pow(rise, 1.55) * 1.9;
-        const crag = (fbm(ca * 44, sa * 44 + v * 6, seed, 3) - 0.5) * height * 0.16 * v;
-        const push = radius - v * radius * 0.05 + (noise3(ca * 18, sa * 18, v * 3) - 0.5) * radius * 0.05;
-        vertices.push(ca * push, base + peak * v + crag, sa * push);
+        const x = Math.cos(a) * distance;
+        const z = Math.sin(a) * distance;
+        const range = fbm(x / (scale * 2.4) + seed, seed * 2, z / (scale * 2.4), 2);
+        const ridge = ridged(x / scale + seed * 7, seed, z / scale, 5);
+        const peak = Math.pow(ridge, 1.5) * (0.45 + range * 1.5);
+        vertices.push(x, base - 8 * (1 - profile) + height * 2.2 * peak * profile, z);
       }
     }
     for (let r = 0; r < rows; r++) {
@@ -676,8 +679,7 @@ export function Mountains({
     geometry.setAttribute("position", new THREE.Float32BufferAttribute(vertices, 3));
     geometry.setIndex(indices);
     geometry.computeVertexNormals();
-    const material = surface(world, { color, flat: true, spec: 0.1, rim: 1.5 });
-    material.side = THREE.DoubleSide;
+    const material = surface(world, { color, flat: true, spec: 0.05, rim: 0.28, rimPower: 5 });
     return { geometry, material };
   }, [world, radius, height, base, seed, color, from, to]);
 

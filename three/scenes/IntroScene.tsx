@@ -2,6 +2,7 @@
 
 import { useMemo } from "react";
 import * as THREE from "three";
+import { mergeVertices } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import { Asteroids, BlackHole, DustDisk, Figure, Sky, type SkyOptions } from "../parts";
 import {
   diskBasis,
@@ -55,6 +56,8 @@ const SKY: SkyOptions = {
 };
 
 const coastX = (z: number) => -14 - 0.15 * (15 - z);
+const COAST_NEAR = -4;
+const COAST_LENGTH = 420;
 
 /** Seaward rocks. x, z, radius for the foam around them. */
 const STACKS: [number, number, number, number][] = [
@@ -105,31 +108,38 @@ function foregroundGeometry() {
   return geometry;
 }
 
-/** Long cliff line running from the near left out to the horizon. */
+/** x of the waterline along the coast. Shared with the water so the foam meets the cliffs. */
+function coastEdge(z: number) {
+  return coastX(z) + (fbm(z * 0.022, 1.2, 0.4, 2) - 0.5) * 18;
+}
+
+/** Long cliff line running out to the horizon, sinking into the sea at its near end. */
 function coastGeometry() {
   const columns = 240;
-  const rows = 360;
+  const rows = 380;
   const vertices: number[] = [];
   const indices: number[] = [];
   for (let r = 0; r <= rows; r++) {
-    const z = -6 - Math.pow(r / rows, 1.5) * 410;
+    const z = COAST_NEAR - Math.pow(r / rows, 1.5) * COAST_LENGTH;
     const far = smoothstep(-20, -300, z);
-    const edge = coastX(z) + (fbm(z * 0.022, 1.2, 0.4, 2) - 0.5) * 18;
-    const crest = 10 + (1 - far) * 6 + (fbm(z * 0.018, 4, 1, 2) - 0.5) * 7;
+    const edge = coastEdge(z);
+    const headland = smoothstep(COAST_NEAR, COAST_NEAR - 30, z);
+    const crest = (10 + (1 - far) * 6 + (fbm(z * 0.018, 4, 1, 2) - 0.5) * 7) * headland;
     for (let c = 0; c <= columns; c++) {
       const x = -2 - Math.pow(c / columns, 1.6) * 240;
       const inland = edge - x;
       const face = smoothstep(-1.5, 5, inland + (noise3(x * 0.12, z * 0.12, 3) - 0.5) * 2.2);
-      const top = (ridged(x * 0.07, 2, z * 0.07, 4) - 0.35) * 4.5 * smoothstep(1, 12, inland);
-      const y = face * (crest + top) + (fbm(x * 0.5, z * 0.5, 8, 2) - 0.5) * 1.2 - 1.4;
+      const top = (ridged(x * 0.07, 2, z * 0.07, 3) - 0.35) * 4.5 * smoothstep(1, 12, inland);
+      const y = face * (crest + top * headland) + (fbm(x * 0.22, z * 0.22, 8, 2) - 0.5) * 1.1 - 1.4;
       vertices.push(x, y, z);
     }
   }
+  // x falls with each column and z with each row, so this order faces upward.
   for (let r = 0; r < rows; r++) {
     for (let c = 0; c < columns; c++) {
       const a = r * (columns + 1) + c;
       const b = a + columns + 1;
-      indices.push(a, a + 1, b, a + 1, b + 1, b);
+      indices.push(a, b, a + 1, a + 1, b, b + 1);
     }
   }
   const geometry = new THREE.BufferGeometry();
@@ -139,15 +149,20 @@ function coastGeometry() {
   return geometry;
 }
 
+/** A weathered sea stack: chunky, layered and closed, with smooth shared normals. */
 function stackGeometry(seed: number) {
-  const geometry = new THREE.IcosahedronGeometry(1, 16);
+  const icosahedron = new THREE.IcosahedronGeometry(1, 14);
+  icosahedron.deleteAttribute("normal");
+  icosahedron.deleteAttribute("uv");
+  const geometry = mergeVertices(icosahedron, 1e-4);
   const position = geometry.getAttribute("position");
   const v = new THREE.Vector3();
   for (let i = 0; i < position.count; i++) {
     v.fromBufferAttribute(position, i);
-    const taper = 1 - smoothstep(-0.3, 1, v.y) * 0.72;
-    const k = 0.55 + fbm(v.x * 2.4 + seed, v.y * 3, v.z * 2.4, 4) * 0.9;
-    position.setXYZ(i, v.x * k * taper, v.y, v.z * k * taper);
+    const taper = 1 - smoothstep(-0.2, 1, v.y) * 0.46;
+    const strata = 1 + (noise3(seed, v.y * 7, seed * 2) - 0.5) * 0.3;
+    const k = (0.62 + fbm(v.x * 1.9 + seed, v.y * 2.2, v.z * 1.9, 3) * 0.78) * strata;
+    position.setXYZ(i, v.x * k * taper, v.y * (0.9 + k * 0.14), v.z * k * taper);
   }
   geometry.computeVertexNormals();
   return geometry;
@@ -157,6 +172,7 @@ const WATER_FRAG = /* glsl */ `
 uniform float uTime;
 uniform vec3 uSunDir,uSun,uDeep,uSky,uGlow;
 uniform vec4 uRocks[4];
+uniform sampler2D uCoast;
 varying vec3 vW;
 ${NOISE_GLSL}
 float H(vec2 p){
@@ -167,7 +183,6 @@ float H(vec2 p){
   s+=vnoise(p*3.3+vec2(-t*.7,t*.6))*.07;
   return s;
 }
-float coast(float z){ return -14.-.15*(15.-z); }
 void main(){
   vec3 toCam=cameraPosition-vW;
   float dist=length(toCam);
@@ -185,9 +200,9 @@ void main(){
   float col_spec=pow(s,300.)*9.+pow(s,60.)*.32;
   col+=uSun*col_spec*.45;
   // Foam: broken white water against the cliffs and around each stack.
-  float near=(coast(p.y)-p.x)*-1.;
-  float shore=near+(fbm2(vec2(p.y*.05,1.2))-.5)*-16.;
-  float reach=smoothstep(9.,0.,abs(shore));
+  float along=clamp((${COAST_NEAR.toFixed(1)}-p.y)/${COAST_LENGTH.toFixed(1)},0.,1.);
+  float shore=p.x-mix(-160.,0.,texture2D(uCoast,vec2(along,.5)).r);
+  float reach=smoothstep(7.,0.,abs(shore))*smoothstep(${COAST_NEAR.toFixed(1)},${COAST_NEAR.toFixed(1)}-30.,p.y);
   for(int i=0;i<4;i++){
     float d=length((p-uRocks[i].xy)/vec2(1.,1.5))-uRocks[i].z;
     reach=max(reach,smoothstep(uRocks[i].w,0.,d));
@@ -205,6 +220,20 @@ void main(){
   gl_FragColor=vec4(mix(col,uSky*.6+uGlow*.2,far),1.);
 }`;
 
+function coastTexture() {
+  const samples = 512;
+  const data = new Uint8Array(samples);
+  for (let i = 0; i < samples; i++) {
+    const z = COAST_NEAR - (i / (samples - 1)) * COAST_LENGTH;
+    data[i] = Math.round(THREE.MathUtils.clamp(1 + coastEdge(z) / 160, 0, 1) * 255);
+  }
+  const texture = new THREE.DataTexture(data, samples, 1, THREE.RedFormat);
+  texture.minFilter = THREE.LinearFilter;
+  texture.magFilter = THREE.LinearFilter;
+  texture.needsUpdate = true;
+  return texture;
+}
+
 function Water() {
   const material = useMemo(
     () =>
@@ -219,6 +248,7 @@ function Water() {
         fragmentShader: WATER_FRAG,
         uniforms: {
           ...noiseUniforms,
+          uCoast: { value: coastTexture() },
           uTime,
           uSunDir: { value: new THREE.Vector3(...SUN).normalize() },
           uSun: { value: new THREE.Color("#ffb868").multiplyScalar(1.5) },
