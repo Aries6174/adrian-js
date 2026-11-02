@@ -25,6 +25,8 @@ export type Project = {
   live?: string;
   github?: string;
   createdAt: string;
+  /** Place in the order set on the admin page. Unset until the project has been moved. */
+  order?: number;
 };
 
 export type Profile = {
@@ -132,8 +134,11 @@ export const aboutSections = [
   { id: "interests", label: "Interests" },
 ];
 
-export function newestFirst(projects: Project[]) {
-  return [...projects].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+/** The order set on the admin page, with anything added since at the top, newest first. */
+export function inDisplayOrder(projects: Project[]) {
+  return [...projects].sort(
+    (a, b) => (a.order ?? -1) - (b.order ?? -1) || b.createdAt.localeCompare(a.createdAt),
+  );
 }
 
 const GITHUB = "https://github.com/Aries6174";

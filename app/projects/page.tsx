@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Suspense } from "react";
 import { PageReady } from "@/components/PageReady";
 import { ProjectsView } from "@/components/ProjectsView";
-import { newestFirst } from "@/lib/content";
+import { inDisplayOrder } from "@/lib/content";
 import { loadContent } from "@/lib/store";
 
 export const metadata: Metadata = {
@@ -15,7 +15,7 @@ async function ProjectsContent() {
   const { projects } = await loadContent();
   return (
     <>
-      <ProjectsView projects={newestFirst(projects)} />
+      <ProjectsView projects={inDisplayOrder(projects)} />
       <PageReady path="/projects" />
     </>
   );

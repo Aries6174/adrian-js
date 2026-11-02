@@ -3,7 +3,7 @@ import { Barlow, Cormorant_Garamond, Rajdhani } from "next/font/google";
 import { Suspense } from "react";
 import { ContentBridge } from "@/components/ContentBridge";
 import { SiteShell } from "@/components/SiteShell";
-import { newestFirst } from "@/lib/content";
+import { inDisplayOrder } from "@/lib/content";
 import { loadContent } from "@/lib/store";
 import "./globals.css";
 
@@ -40,7 +40,7 @@ export const viewport: Viewport = {
 
 async function ContentLoader() {
   const { projects } = await loadContent();
-  return <ContentBridge projects={newestFirst(projects)} />;
+  return <ContentBridge projects={inDisplayOrder(projects)} />;
 }
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

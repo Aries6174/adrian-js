@@ -4,7 +4,7 @@ import { Suspense } from "react";
 import { PageReady } from "@/components/PageReady";
 import { TravelLink } from "@/components/TravelLink";
 import { Arrow, Eyebrow, Icon, PageTitle, stagger } from "@/components/ui";
-import { newestFirst } from "@/lib/content";
+import { inDisplayOrder } from "@/lib/content";
 import { loadContent } from "@/lib/store";
 
 export const metadata: Metadata = { title: "The Cosmic Archive" };
@@ -26,7 +26,7 @@ async function FeaturedProjects() {
   const { projects } = await loadContent();
   return (
     <div className="grid gap-3 md:grid-cols-3 lg:gap-4">
-      {newestFirst(projects).slice(0, 3).map((project, index) => (
+      {inDisplayOrder(projects).slice(0, 3).map((project, index) => (
         <TravelLink
           key={project.id}
           href="/projects"

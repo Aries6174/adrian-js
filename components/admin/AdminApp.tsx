@@ -1,12 +1,13 @@
 "use client";
 
 import Image from "next/image";
-import { type ReactNode, useActionState, useState, useTransition } from "react";
+import { type PointerEvent as ReactPointerEvent, type ReactNode, useActionState, useRef, useState, useTransition } from "react";
 import {
   login,
   logout,
   removeMessage,
   removeProject,
+  reorderProjects,
   saveAbout,
   saveHome,
   saveProfile,
@@ -17,7 +18,7 @@ import {
   type About,
   type HomeCards,
   ICON_OPTIONS,
-  newestFirst,
+  inDisplayOrder,
   type Profile,
   type Project,
   type ProjectCategory,
@@ -370,8 +371,74 @@ function ProjectForm({
 
 function ProjectsTab({ content, onSaved }: { content: SiteContent; onSaved: (content: SiteContent) => void }) {
   const [editing, setEditing] = useState<string | "new" | null>(null);
-  const { status, run } = useSaver(onSaved);
-  const projects = newestFirst(content.projects);
+  const [dragging, setDragging] = useState<string | null>(null);
+  // The order on screen while a move is being made and saved.
+  const [moved, setMoved] = useState<string[] | null>(null);
+  const listRef = useRef<HTMLUListElement>(null);
+  const { busy, status, run } = useSaver(onSaved);
+  const saved = inDisplayOrder(content.projects);
+  const projects = moved ? moved.flatMap((id) => saved.filter((item) => item.id === id)) : saved;
+
+  const saveOrder = (ids: string[]) => {
+    setMoved(ids);
+    run(
+      async () => {
+        const result = await reorderProjects(ids).catch(
+          (): SaveResult => ({ error: "Could not save. Check your connection and try again." }),
+        );
+        if ("error" in result) setMoved(null);
+        return result;
+      },
+      () => setMoved(null),
+    );
+  };
+
+  // Follows the pointer on the window, as moving a row in the page would drop a capture on its handle.
+  const startDrag = (id: string, event: ReactPointerEvent) => {
+    if (busy || event.button !== 0) return;
+    event.preventDefault();
+    const start = projects.map((item) => item.id);
+    let ids = start;
+    setDragging(id);
+    setMoved(ids);
+
+    const move = (pointer: PointerEvent) => {
+      const list = listRef.current;
+      if (!list) return;
+      const place = [...list.children].filter((row) => {
+        const { top, height } = row.getBoundingClientRect();
+        return (row as HTMLElement).dataset.id !== id && top + height / 2 < pointer.clientY;
+      }).length;
+      if (ids.indexOf(id) !== place) {
+        ids = ids.filter((item) => item !== id);
+        ids.splice(place, 0, id);
+        setMoved(ids);
+      }
+      const scroller = list.closest(".overflow-y-auto");
+      if (pointer.clientY < 60) scroller?.scrollBy(0, -12);
+      else if (pointer.clientY > window.innerHeight - 60) scroller?.scrollBy(0, 12);
+    };
+    const end = () => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", end);
+      window.removeEventListener("pointercancel", end);
+      setDragging(null);
+      if (ids.join() === start.join()) setMoved(null);
+      else saveOrder(ids);
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", end);
+    window.addEventListener("pointercancel", end);
+  };
+
+  const nudge = (id: string, step: number) => {
+    const ids = projects.map((item) => item.id);
+    const place = ids.indexOf(id) + step;
+    if (busy || place < 0 || place >= ids.length) return;
+    ids.splice(ids.indexOf(id), 1);
+    ids.splice(place, 0, id);
+    saveOrder(ids);
+  };
 
   if (editing) {
     const project = projects.find((item) => item.id === editing);
@@ -381,16 +448,38 @@ function ProjectsTab({ content, onSaved }: { content: SiteContent; onSaved: (con
   return (
     <section>
       <div className="mb-4 flex items-center justify-between gap-4">
-        <p className="text-sm text-soft">Newest projects appear first on Home and Projects.</p>
-        <button type="button" onClick={() => setEditing("new")} className="btn" data-solid="true">
+        <div>
+          <p className="text-sm text-soft">
+            Drag the three lines to set the order on Home and Projects. Home shows the first three, and new projects start at the top.
+          </p>
+          <p role="status" className={`min-h-5 text-sm ${status && !status.ok ? "text-red-300" : "text-gold"}`}>
+            {status?.text}
+          </p>
+        </div>
+        <button type="button" onClick={() => setEditing("new")} className="btn shrink-0" data-solid="true">
           Add project
         </button>
       </div>
-      {status && !status.ok && <p className="mb-3 text-sm text-red-300">{status.text}</p>}
       {projects.length === 0 && <p className="text-soft">No projects yet.</p>}
-      <ul className="grid gap-2">
+      <ul ref={listRef} className="grid grid-cols-1 gap-2">
         {projects.map((project) => (
-          <li key={project.id} className="hud-panel flex items-center gap-4 p-3">
+          <li key={project.id} data-id={project.id} className={`hud-panel flex flex-wrap items-center gap-x-4 gap-y-2 p-3 ${dragging === project.id ? "ring-1 ring-gold" : ""}`}>
+            <button
+              type="button"
+              aria-label={`Move ${project.title}. Drag it, or use the up and down arrow keys.`}
+              title="Drag to reorder"
+              onPointerDown={(event) => startDrag(project.id, event)}
+              onKeyDown={(event) => {
+                if (event.key !== "ArrowUp" && event.key !== "ArrowDown") return;
+                event.preventDefault();
+                nudge(project.id, event.key === "ArrowUp" ? -1 : 1);
+              }}
+              className="flex h-11 w-8 shrink-0 cursor-grab touch-none items-center justify-center text-muted hover:text-gold active:cursor-grabbing"
+            >
+              <svg aria-hidden="true" viewBox="0 0 20 20" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+                <path d="M3 6h14M3 10h14M3 14h14" />
+              </svg>
+            </button>
             <div className="relative h-14 w-20 shrink-0 overflow-hidden border border-gold-faint">
               <Image src={project.image} alt="" fill unoptimized sizes="80px" className={project.fit === "contain" ? "object-contain" : "object-cover"} />
             </div>
@@ -398,20 +487,22 @@ function ProjectsTab({ content, onSaved }: { content: SiteContent; onSaved: (con
               <p className="truncate text-text">{project.title}</p>
               <p className="truncate text-sm text-muted">{project.tagline}</p>
             </div>
-            <button type="button" onClick={() => setEditing(project.id)} className="btn">
-              Edit
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                if (window.confirm(`Delete "${project.title}"? This can't be undone.`)) {
-                  run(() => removeProject(project.id));
-                }
-              }}
-              className="btn"
-            >
-              Delete
-            </button>
+            <div className="flex w-full justify-end gap-4 sm:w-auto">
+              <button type="button" onClick={() => setEditing(project.id)} className="btn">
+                Edit
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  if (window.confirm(`Delete "${project.title}"? This can't be undone.`)) {
+                    run(() => removeProject(project.id));
+                  }
+                }}
+                className="btn"
+              >
+                Delete
+              </button>
+            </div>
           </li>
         ))}
       </ul>

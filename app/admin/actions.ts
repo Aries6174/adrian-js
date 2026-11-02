@@ -50,7 +50,7 @@ export async function saveProject(input: Partial<Project>) {
       projects: existing
         ? content.projects.map((project) =>
             project.id === existing.id
-              ? { ...fields, id: existing.id, createdAt: existing.createdAt }
+              ? { ...fields, id: existing.id, createdAt: existing.createdAt, order: existing.order }
               : project,
           )
         : [...content.projects, { ...fields, id: newId(), createdAt: new Date().toISOString() }],
@@ -63,6 +63,16 @@ export async function removeProject(id: string) {
     ...content,
     projects: content.projects.filter((project) => project.id !== id),
   }));
+}
+
+export async function reorderProjects(ids: string[]) {
+  return update((content) => {
+    const places = new Map(ids.map((id, index) => [id, index]));
+    return {
+      ...content,
+      projects: content.projects.map((project) => ({ ...project, order: places.get(project.id) })),
+    };
+  });
 }
 
 export async function saveAbout(input: Partial<About>) {
