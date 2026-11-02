@@ -597,7 +597,7 @@ export function AboutScene({ visible }: { visible: boolean }) {
       <Flowers />
       <Figure
         world={world}
-        kind="hood"
+        kind="standing"
         position={[-2.75, terrainHeight(-2.75, 4.7) - 0.03, 4.7]}
         rotationY={0.12}
         rim={1.5}
@@ -605,8 +605,8 @@ export function AboutScene({ visible }: { visible: boolean }) {
       <Figure
         world={world}
         kind="seated"
-        position={[-1.88, terrainHeight(-1.88, 4.2) + 0.03, 4.2]}
-        rotationY={-0.1}
+        position={[-1.72, terrainHeight(-1.72, 4.2) + 0.03, 4.2]}
+        rotationY={-Math.PI / 2 - 0.1}
         rim={1.5}
       />
       </Staged>

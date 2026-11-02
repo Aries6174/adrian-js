@@ -302,7 +302,7 @@ export function ProjectsScene({ visible }: { visible: boolean }) {
         );
       })}
 
-      <Figure world={world} kind="casual" position={[-0.9, 0, 9.8]} scale={1.03} rim={1.8} />
+      <Figure world={world} kind="casual" position={[-0.9, 0, 9.8]} rim={1.8} />
       </Staged>
     </group>
   );

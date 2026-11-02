@@ -101,23 +101,8 @@ export function AboutView({ about }: { about: About }) {
         </Panel>
 
         <div className="grid gap-3 md:grid-cols-2">
-          <Panel id="skills" active={section === 2} step={3} className="p-4">
-            <SectionLabel no="02">Tech stack</SectionLabel>
-            <ul className="mt-3 grid grid-cols-4 gap-x-2 gap-y-2.5">
-              {about.techStack.map((tech) => (
-                <li key={tech.name} className="group text-center">
-                  <span className="mx-auto flex size-[3.1rem] items-center justify-center border border-gold-faint bg-black/25 text-gold transition-all group-hover:border-gold group-hover:shadow-[0_0_1rem_rgb(236_182_95_/_0.25)]">
-                    <Icon name={tech.icon} className="size-6" />
-                  </span>
-                  <span className="mt-1 block text-[0.66rem] leading-tight tracking-wide text-soft">{tech.name}</span>
-                  {tech.note && <span className="block text-[0.6rem] leading-tight text-muted">({tech.note})</span>}
-                </li>
-              ))}
-            </ul>
-          </Panel>
-
-          <Panel id="background" active={section === 1} step={4} className="p-4">
-            <SectionLabel no="03">Education</SectionLabel>
+          <Panel id="background" active={section === 1} step={3} className="p-4">
+            <SectionLabel no="02">Education</SectionLabel>
             <div className="mt-3 flex gap-4">
               <div className="relative w-[7.2rem] shrink-0 overflow-hidden border border-gold-faint">
                 <Image src={about.education.image} alt={about.education.imageAlt} fill sizes="10vw" className="object-cover" />
@@ -156,6 +141,21 @@ export function AboutView({ about }: { about: About }) {
                 </p>
               </div>
             </div>
+          </Panel>
+
+          <Panel id="skills" active={section === 2} step={4} className="p-4">
+            <SectionLabel no="03">Tech stack</SectionLabel>
+            <ul className="mt-3 grid grid-cols-4 gap-x-2 gap-y-2.5">
+              {about.techStack.map((tech) => (
+                <li key={tech.name} className="group text-center">
+                  <span className="mx-auto flex size-[3.1rem] items-center justify-center border border-gold-faint bg-black/25 text-gold transition-all group-hover:border-gold group-hover:shadow-[0_0_1rem_rgb(236_182_95_/_0.25)]">
+                    <Icon name={tech.icon} className="size-6" />
+                  </span>
+                  <span className="mt-1 block text-[0.66rem] leading-tight tracking-wide text-soft">{tech.name}</span>
+                  {tech.note && <span className="block text-[0.6rem] leading-tight text-muted">({tech.note})</span>}
+                </li>
+              ))}
+            </ul>
           </Panel>
         </div>
 

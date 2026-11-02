@@ -438,7 +438,7 @@ export function IntroScene({ visible }: { visible: boolean }) {
       <Coast world={world} />
       <Stacks world={world} />
       <Boulders world={world} />
-      <Figure world={world} kind="hood" position={[0, 5.36, 12]} scale={1} rim={1.5} />
+      <Figure world={world} kind="explorer" position={[0, 5.36, 12]} rim={1.5} pack />
       </Staged>
     </group>
   );

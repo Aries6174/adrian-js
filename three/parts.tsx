@@ -4,7 +4,8 @@ import { type ThreeEvent, useFrame, useThree } from "@react-three/fiber";
 import { Children, createContext, type ReactNode, useContext, useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import { Reflector } from "three/examples/jsm/objects/Reflector.js";
-import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
+import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
+import { RoundedBoxGeometry } from "three/examples/jsm/geometries/RoundedBoxGeometry.js";
 import { getStage, type SceneId } from "@/lib/stage";
 import {
   bakes,
@@ -962,154 +963,107 @@ export function Planet({
 
 /* ---------------------------------- People ---------------------------------- */
 
-type Point = [number, number, number];
+export type FigureKind = "explorer" | "coat" | "casual" | "jacket" | "standing" | "seated";
 
-function ellipsoid(center: Point, radius: Point) {
-  const part = new THREE.SphereGeometry(1, 20, 14);
-  part.scale(...radius);
-  part.translate(...center);
-  return part;
+const figureRequests = new Map<FigureKind, Promise<THREE.BufferGeometry>>();
+const NO_GEOMETRY = new THREE.BufferGeometry();
+
+/** Posed people, 1.85 m tall, feet at y=0, facing away from the viewer. See public/models. */
+function loadFigure(kind: FigureKind) {
+  let request = figureRequests.get(kind);
+  if (!request) {
+    request = new GLTFLoader().loadAsync(`/models/${kind}.glb`).then((gltf) => {
+      let geometry: THREE.BufferGeometry | null = null;
+      gltf.scene.traverse((node) => {
+        if (!geometry && (node as THREE.Mesh).isMesh) geometry = (node as THREE.Mesh).geometry;
+      });
+      if (!geometry) throw new Error(`No mesh in ${kind}.glb`);
+      return geometry;
+    });
+    figureRequests.set(kind, request);
+  }
+  return request;
 }
 
-/** Tapered limb with rounded ends. */
-function limb(from: Point, to: Point, r0: number, r1: number) {
-  const a = new THREE.Vector3(...from);
-  const b = new THREE.Vector3(...to);
-  const shaft = new THREE.CylinderGeometry(r1, r0, a.distanceTo(b), 14, 1, true);
-  shaft.applyQuaternion(
-    new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), b.clone().sub(a).normalize()),
-  );
-  const middle = a.clone().add(b).multiplyScalar(0.5);
-  shaft.translate(middle.x, middle.y, middle.z);
-  return [shaft, ellipsoid(from, [r0, r0, r0]), ellipsoid(to, [r1, r1, r1])];
-}
-
-function standingBody(kind: "hood" | "coat" | "casual") {
-  const parts: THREE.BufferGeometry[] = [];
-  for (const side of [-1, 1]) {
-    // Trousers and a boot, close together so the legs read as one form from a distance.
-    parts.push(...limb([side * 0.09, 0.95, 0], [side * 0.098, 0.5, 0], 0.112, 0.082));
-    parts.push(...limb([side * 0.098, 0.5, 0], [side * 0.102, 0.11, 0.005], 0.082, 0.066));
-    parts.push(ellipsoid([side * 0.104, 0.06, -0.035], [0.075, 0.062, 0.13]));
-    // Jacket sleeve, sitting against the body, and a hand.
-    parts.push(...limb([side * 0.222, 1.42, 0], [side * 0.248, 1.12, 0.01], 0.088, 0.072));
-    parts.push(...limb([side * 0.248, 1.12, 0.01], [side * 0.25, 0.86, -0.01], 0.072, 0.052));
-    parts.push(ellipsoid([side * 0.25, 0.8, -0.012], [0.042, 0.062, 0.034]));
-  }
-  // Jacket body: broad at the shoulders, straight down to a hem over the hips.
-  parts.push(ellipsoid([0, 0.93, 0], [0.205, 0.13, 0.135]));
-  parts.push(ellipsoid([0, 1.12, 0], [0.215, 0.24, 0.145]));
-  parts.push(ellipsoid([0, 1.3, 0], [0.24, 0.2, 0.155]));
-  parts.push(ellipsoid([0, 1.435, 0], [0.272, 0.085, 0.125]));
-  parts.push(...limb([0, 1.46, 0], [0, 1.54, 0], 0.07, 0.06));
-  if (kind === "casual") {
-    parts.push(ellipsoid([0, 1.635, 0], [0.09, 0.106, 0.098]));
-    // Tousled hair.
-    for (const [x, y, z, r] of [
-      [0, 1.7, 0.012, 0.09], [0.058, 1.685, 0.03, 0.06], [-0.058, 1.69, 0.03, 0.06],
-      [0.03, 1.73, -0.03, 0.052], [-0.03, 1.735, 0.03, 0.048], [0.07, 1.64, 0.02, 0.043], [-0.07, 1.645, 0.02, 0.043],
-    ]) {
-      parts.push(ellipsoid([x, y, z], [r, r, r]));
-    }
-    // Upturned collar.
-    parts.push(ellipsoid([0, 1.52, 0.015], [0.115, 0.05, 0.1]));
-  } else {
-    // Hood over the head, gathered onto the shoulders.
-    parts.push(ellipsoid([0, 1.625, 0.012], [0.112, 0.125, 0.122]));
-    parts.push(ellipsoid([0, 1.515, 0.045], [0.15, 0.07, 0.115]));
-  }
-  if (kind === "coat") {
-    const skirt = new THREE.CylinderGeometry(0.215, 0.33, 0.68, 22, 1, true);
-    skirt.scale(1, 1, 0.7);
-    skirt.translate(0, 0.66, 0.005);
-    parts.push(skirt);
-  }
-  return parts;
-}
-
+/** Backpack worn by standing figures, sitting against the shoulder blades. */
 function backpack() {
-  const parts = [
-    ellipsoid([0, 1.2, 0.165], [0.165, 0.235, 0.09]),
-    ellipsoid([0, 1.385, 0.15], [0.12, 0.045, 0.065]),
-  ];
-  const merged = mergeGeometries(parts, false)!;
-  parts.forEach((part) => part.dispose());
-  return merged;
-}
-
-/** Sitting in profile, facing +x, one arm reaching out toward the stream of light. */
-function seatedBody() {
-  const parts: THREE.BufferGeometry[] = [];
-  for (const side of [-1, 1]) {
-    parts.push(...limb([0, 0.16, side * 0.09], [0.38, 0.44, side * 0.12], 0.09, 0.066));
-    parts.push(...limb([0.38, 0.44, side * 0.12], [0.5, 0.07, side * 0.13], 0.066, 0.05));
-    parts.push(ellipsoid([0.55, 0.05, side * 0.13], [0.115, 0.05, 0.055]));
-  }
-  parts.push(ellipsoid([-0.02, 0.2, 0], [0.13, 0.13, 0.17]));
-  parts.push(ellipsoid([-0.05, 0.42, 0], [0.12, 0.2, 0.165]));
-  parts.push(ellipsoid([-0.05, 0.62, 0], [0.13, 0.19, 0.19]));
-  parts.push(ellipsoid([-0.11, 0.56, 0], [0.09, 0.2, 0.15]));
-  parts.push(ellipsoid([-0.04, 0.78, 0], [0.095, 0.07, 0.215]));
-  parts.push(...limb([-0.03, 0.82, 0], [0.0, 0.9, 0], 0.05, 0.048));
-  parts.push(ellipsoid([0.02, 0.99, 0], [0.105, 0.112, 0.092]));
-  for (const [x, y, z, r] of [
-    [-0.01, 1.06, 0, 0.09], [-0.06, 1.03, 0.03, 0.06], [0.04, 1.08, -0.03, 0.055], [-0.05, 1.05, -0.04, 0.05],
-  ]) {
-    parts.push(ellipsoid([x, y, z], [r, r, r]));
-  }
-  // Reaching arm, and the other resting on a knee.
-  parts.push(...limb([-0.02, 0.78, -0.17], [0.3, 0.86, -0.15], 0.06, 0.05));
-  parts.push(...limb([0.3, 0.86, -0.15], [0.62, 0.99, -0.12], 0.05, 0.036));
-  parts.push(ellipsoid([0.67, 1.015, -0.11], [0.05, 0.03, 0.03]));
-  parts.push(...limb([-0.02, 0.76, 0.17], [0.16, 0.52, 0.17], 0.058, 0.048));
-  parts.push(...limb([0.16, 0.52, 0.17], [0.36, 0.5, 0.14], 0.048, 0.036));
-  return parts;
+  const pack = new RoundedBoxGeometry(0.32, 0.44, 0.16, 4, 0.06);
+  pack.translate(0, 1.22, 0.19);
+  return pack;
 }
 
 export function Figure({
   world,
-  kind = "hood",
+  kind,
   position,
   rotationY = 0,
-  scale = 1,
   rim = 1,
-  pack = true,
+  pack = false,
 }: {
   world: World;
-  kind?: "hood" | "coat" | "casual" | "seated";
+  kind: FigureKind;
   position: [number, number, number];
   rotationY?: number;
-  scale?: number;
   rim?: number;
   pack?: boolean;
 }) {
-  const { body, gear, material, edge } = useMemo(() => {
-    const parts = kind === "seated" ? seatedBody() : standingBody(kind);
-    const merged = mergeGeometries(parts, false)!;
-    parts.forEach((part) => part.dispose());
+  const [body, setBody] = useState<THREE.BufferGeometry>(NO_GEOMETRY);
+
+  // Counted with the offscreen images, so the world isn't shown until its people have arrived.
+  useEffect(() => {
+    let current = true;
+    bakes.pending += 1;
+    loadFigure(kind)
+      .then((geometry) => {
+        if (current) setBody(geometry);
+      })
+      .catch((error) => console.error("Could not load figure", kind, error))
+      .finally(() => {
+        bakes.pending -= 1;
+      });
+    return () => {
+      current = false;
+    };
+  }, [kind]);
+
+  const { gear, material, edge } = useMemo(() => {
+    // Hair and clothes are thin one-sided layers, so both sides are drawn to keep the body solid.
+    const material = surface(world, {
+      color: "#17120d",
+      detail: 22,
+      bump: 0.3,
+      shine: 14,
+      spec: 0.03,
+      rim: 0.12,
+      rimPower: 6,
+    });
+    material.side = THREE.DoubleSide;
     return {
-      body: merged,
-      gear: pack && kind !== "seated" ? backpack() : null,
-      material: surface(world, {
-        color: "#17120d",
-        detail: 22,
-        bump: 0.3,
-        shine: 14,
-        spec: 0.03,
-        rim: 0.12,
-        rimPower: 6,
-      }),
-      edge: new THREE.MeshBasicMaterial({
-        color: new THREE.Color("#ffb564").multiplyScalar(0.62 * rim),
+      gear: pack ? backpack() : null,
+      material,
+      // A shell pushed out along the normals, showing only its inside: a thin line of light.
+      // Its width follows distance so the line stays even, and it's held behind the body.
+      edge: new THREE.ShaderMaterial({
         side: THREE.BackSide,
+        vertexShader: /* glsl */ `
+          void main(){
+            float distance=-(modelViewMatrix*vec4(position,1.)).z;
+            gl_Position=projectionMatrix*modelViewMatrix*vec4(position+normal*distance*.0014,1.);
+            gl_Position.z+=.004*gl_Position.w;
+          }`,
+        fragmentShader: /* glsl */ `
+          uniform vec3 uColor;
+          void main(){ gl_FragColor=vec4(uColor,1.); }`,
+        uniforms: { uColor: { value: new THREE.Color("#ffb564").multiplyScalar(0.62 * rim) } },
       }),
     };
-  }, [world, kind, rim, pack]);
+  }, [world, rim, pack]);
+
   return (
-    <group position={position} rotation={[0, rotationY, 0]} scale={scale}>
-      <mesh geometry={body} material={material} />
+    <group position={position} rotation={[0, rotationY, 0]}>
+      <mesh geometry={body} material={material} frustumCulled={false} />
       {gear && <mesh geometry={gear} material={material} />}
-      <mesh geometry={body} material={edge} scale={[1.018, 1.005, 1.018]} />
+      <mesh geometry={body} material={edge} frustumCulled={false} />
     </group>
   );
 }

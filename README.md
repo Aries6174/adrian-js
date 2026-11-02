@@ -42,3 +42,7 @@ Until something is saved from admin, the site shows the content in `lib/content.
 5. Open `/admin`, log in and check each tab. Your local `data/site.db` isn't copied, so edits made locally need repeating.
 
 Once you have your own domain, verify it in Resend and set `MAIL_FROM` to an address on it.
+
+## Credits
+
+The figures in `public/models` are posed from [Microsoft Rocketbox](https://github.com/microsoft/Microsoft-Rocketbox) avatars, used under the MIT License. The notice is kept in `public/models/LICENSE-Rocketbox.md`.

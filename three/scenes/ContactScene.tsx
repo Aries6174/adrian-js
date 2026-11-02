@@ -313,7 +313,7 @@ export function ContactScene({ visible }: { visible: boolean }) {
         />
       </group>
 
-      <Figure world={world} kind="casual" position={[-1.75, 0, 8.1]} scale={1.03} rim={1.8} />
+      <Figure world={world} kind="jacket" position={[-1.75, 0, 8.1]} rim={1.8} />
       </Staged>
     </group>
   );

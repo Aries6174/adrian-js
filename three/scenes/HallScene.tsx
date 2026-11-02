@@ -199,7 +199,7 @@ export function HallScene({ visible }: { visible: boolean }) {
         </group>
       ))}
 
-      <Figure world={world} kind="coat" position={[0, 0, 10]} rim={1.1} />
+      <Figure world={world} kind="coat" position={[0, 0, 10]} rim={1.1} pack />
       </Staged>
     </group>
   );
