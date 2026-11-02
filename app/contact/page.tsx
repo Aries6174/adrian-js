@@ -1,0 +1,147 @@
+import type { Metadata } from "next";
+import Image from "next/image";
+import { ContactForm } from "@/components/ContactForm";
+import { Eyebrow, FootNote, Icon, PageTitle, SectionLabel, stagger } from "@/components/ui";
+import { profile } from "@/lib/content";
+import { landDots, mapPoint } from "@/lib/worldmap";
+
+export const metadata: Metadata = {
+  title: "Contact",
+  description:
+    "Get in touch with Adrian Jaspa about opportunities, collaborations and interesting projects.",
+};
+
+const dots = landDots(5);
+const [pinX, pinY] = mapPoint(profile.lon, profile.lat);
+
+const links = [
+  { label: "Email", value: profile.email, href: `mailto:${profile.email}`, icon: "mail" },
+  { label: "GitHub", value: profile.githubHandle, href: profile.github, icon: "github" },
+  { label: "LinkedIn", value: profile.linkedinHandle, href: profile.linkedin, icon: "linkedin" },
+  {
+    label: "Resume",
+    value: "Request by email",
+    href: `mailto:${profile.email}?subject=${encodeURIComponent("Resume request")}`,
+    icon: "resume",
+  },
+  { label: "Twitter / X", value: profile.xHandle, href: profile.x, icon: "x" },
+  { label: "Discord", value: profile.discord, icon: "discord" },
+];
+
+export default function ContactPage() {
+  return (
+    <main className="page px-[var(--gutter)] pb-10 pt-32 lg:h-dvh lg:p-0">
+      <section className="lg:absolute lg:left-[calc(var(--gutter)+1.5rem)] lg:top-[6.4rem] lg:w-[20rem]">
+        <Eyebrow lines={["Let's", "Connect", "Across", "Worlds"]} />
+        <span className="rule rise mt-2" style={stagger(0)} />
+        <PageTitle size="clamp(2.4rem, 2.95rem, 12vw)">Contact</PageTitle>
+        <span className="rule rise mt-4" style={stagger(2)} />
+        <p className="label rise mt-5 leading-[1.7] text-soft" style={stagger(3)}>
+          Open to opportunities,
+          <br />
+          collaborations, and
+          <br />
+          interesting projects.
+        </p>
+      </section>
+
+      <FootNote lines={["Different", "Worlds", "Same", "Conversation"]} />
+
+      <div className="mt-[30dvh] grid gap-3 lg:absolute lg:bottom-[1.4rem] lg:right-[var(--gutter)] lg:top-[5.2rem] lg:mt-0 lg:w-[39rem] lg:grid-cols-[1fr_10.5rem] lg:grid-rows-[1fr_auto]">
+        <section className="hud-panel slide-left p-5 lg:overflow-y-auto" data-active="true" style={stagger(2)}>
+          <SectionLabel no="01">Send a message</SectionLabel>
+          <h2 className="display mt-3 text-[1.55rem] text-gold">
+            Let&apos;s talk<span className="caret">_</span>
+          </h2>
+          <p className="copy mt-2">
+            Have a question, opportunity, or just want to say hi? I&apos;d love
+            to hear from you.
+          </p>
+          <ContactForm />
+        </section>
+
+        <aside className="hud-panel slide-left flex flex-col p-4 lg:row-span-1 lg:overflow-hidden" style={stagger(3)}>
+          <div className="relative -mx-4 -mt-4 h-[7.8rem] shrink-0 overflow-hidden">
+            <Image src="/art/world.webp" alt="" fill sizes="12vw" className="object-cover object-right" />
+            <span className="absolute inset-0 bg-gradient-to-t from-ink/80 to-transparent" />
+          </div>
+          <ul className="label mt-3 text-[0.64rem] leading-[1.75] text-soft">
+            {["Ideas", "Projects", "Jobs", "Collaborations", "Friendly chats"].map((item) => (
+              <li key={item}>{item}</li>
+            ))}
+          </ul>
+          <span className="rule mt-2" />
+
+          <div className="mt-auto border-t border-gold-faint pt-4">
+            <SectionLabel no="02">Location</SectionLabel>
+            <svg
+              viewBox="0 0 100 42"
+              role="img"
+              aria-label={`Map with a marker on ${profile.city}, ${profile.country}`}
+              className="mt-3 w-full text-soft"
+            >
+              {dots.map(([lon, lat]) => {
+                const [x, y] = mapPoint(lon, lat);
+                return <circle key={`${lon}:${lat}`} cx={x * 100} cy={y * 42} r="0.5" fill="currentColor" opacity="0.55" />;
+              })}
+              <circle cx={pinX * 100} cy={pinY * 42} r="3.4" fill="none" stroke="var(--gold)" strokeWidth="0.35" />
+              <circle cx={pinX * 100} cy={pinY * 42} r="1.3" fill="var(--gold-bright)" />
+            </svg>
+            <p className="label mt-3 text-[0.66rem] leading-[1.6] text-text">
+              {profile.city}
+              <br />
+              {profile.country}
+            </p>
+            <p className="mt-2 text-[0.68rem] leading-[1.5] tracking-widest text-soft">
+              {profile.lat.toFixed(4)}° N
+              <br />
+              {profile.lon.toFixed(4)}° E
+            </p>
+          </div>
+        </aside>
+
+        <section className="hud-panel slide-left p-4" style={stagger(4)}>
+          <SectionLabel no="03">Find me on</SectionLabel>
+          <ul className="mt-3 grid grid-cols-2 gap-1.5 sm:grid-cols-3">
+            {links.map((link) => {
+              const body = (
+                <>
+                  <span className="flex h-[2.2rem] items-center justify-center text-gold">
+                    <Icon name={link.icon} className="size-6" />
+                  </span>
+                  <span className="label block text-[0.62rem] text-text">{link.label}</span>
+                  <span className="mt-0.5 block truncate text-[0.62rem] tracking-wider text-soft">{link.value}</span>
+                </>
+              );
+              const box = "block border border-gold-faint/60 bg-black/20 p-1.5 text-center";
+              return (
+                <li key={link.label}>
+                  {link.href ? (
+                    <a
+                      href={link.href}
+                      {...(link.href.startsWith("http") ? { target: "_blank", rel: "noreferrer" } : {})}
+                      className={`${box} transition-all hover:border-gold hover:bg-gold/10`}
+                    >
+                      {body}
+                    </a>
+                  ) : (
+                    <div className={box}>{body}</div>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+
+        <aside className="hud-panel slide-left relative flex items-end overflow-hidden p-4 max-lg:hidden" style={stagger(5)}>
+          <Image src="/art/world.webp" alt="" fill sizes="12vw" className="object-cover object-left opacity-55" />
+          <span className="absolute inset-0 bg-gradient-to-t from-ink/90 to-transparent" />
+          <blockquote className="label relative text-[0.64rem] leading-[1.7] text-text">
+            &ldquo;Good ideas always find a way to connect.&rdquo;
+            <span className="rule mt-2" />
+          </blockquote>
+        </aside>
+      </div>
+    </main>
+  );
+}

@@ -1,26 +1,374 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --ink: #050403;
+  --gold: #ecb65f;
+  --gold-bright: #ffd58a;
+  --gold-line: rgb(236 182 95 / 0.55);
+  --gold-faint: rgb(236 182 95 / 0.2);
+  --text: #f1ece2;
+  --text-soft: #c4bdae;
+  --text-muted: #8f8778;
+  --panel: rgb(8 6 3 / 0.66);
+  --gutter: 2.4rem;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-ink: var(--ink);
+  --color-gold: var(--gold);
+  --color-gold-bright: var(--gold-bright);
+  --color-gold-line: var(--gold-line);
+  --color-gold-faint: var(--gold-faint);
+  --color-text: var(--text);
+  --color-soft: var(--text-soft);
+  --color-muted: var(--text-muted);
+  --font-display: var(--font-display);
+  --font-body: var(--font-body);
+  --font-quote: var(--font-quote);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+/* The whole interface is sized in rem, and rem follows the viewport so each page
+   keeps the composition of its 16:9 reference on any desktop screen. */
+html {
+  font-size: clamp(13.5px, min(1vw, 1.778vh), 26px);
+  background: var(--ink);
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--ink);
+  color: var(--text);
+  font-family: var(--font-body), system-ui, sans-serif;
+  min-height: 100dvh;
+  overflow: hidden;
+}
+
+@media (max-width: 1023px) {
+  html {
+    font-size: 16px;
+  }
+  body {
+    overflow: auto;
+  }
+  :root {
+    --gutter: 1.25rem;
+  }
+}
+
+::selection {
+  background: var(--gold);
+  color: var(--ink);
+}
+
+:focus-visible {
+  outline: 1.5px solid var(--gold-bright);
+  outline-offset: 3px;
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--gold-faint) transparent;
+}
+
+@layer components {
+  /* Page frame: above the canvas and click-through except for real controls. */
+  .page {
+    position: relative;
+    z-index: 10;
+    min-height: 100dvh;
+    pointer-events: none;
+    transition: opacity 320ms ease;
+  }
+  .page a,
+  .page button,
+  .page input,
+  .page textarea,
+  .page .hud-panel {
+    pointer-events: auto;
+  }
+  [data-leaving="true"] .page,
+  [data-leaving="true"] .site-header {
+    opacity: 0;
+  }
+
+  .label {
+    font-family: var(--font-display), sans-serif;
+    font-size: 0.72rem;
+    font-weight: 500;
+    letter-spacing: 0.24em;
+    text-transform: uppercase;
+  }
+
+  .copy {
+    font-size: 0.82rem;
+    line-height: 1.75;
+    letter-spacing: 0.055em;
+    color: var(--text-soft);
+  }
+
+  .display {
+    font-family: var(--font-display), sans-serif;
+    font-weight: 500;
+    letter-spacing: 0.17em;
+    line-height: 1.05;
+    text-transform: uppercase;
+  }
+
+  .serif-quote {
+    font-family: var(--font-quote), serif;
+    line-height: 1.32;
+    letter-spacing: 0.03em;
+    color: rgb(236 182 95 / 0.82);
+  }
+
+  .rule {
+    display: block;
+    width: 1.7rem;
+    height: 1px;
+    background: var(--gold);
+  }
+
+  /* Glass panels with the small gold corner brackets from the references. */
+  .hud-panel {
+    position: relative;
+    background: var(--panel);
+    border: 1px solid var(--gold-faint);
+    -webkit-backdrop-filter: blur(9px);
+    backdrop-filter: blur(9px);
+    transition:
+      border-color 320ms ease,
+      box-shadow 320ms ease;
+  }
+  .hud-panel::before,
+  .hud-panel::after {
+    content: "";
+    position: absolute;
+    width: 0.85rem;
+    height: 0.85rem;
+    pointer-events: none;
+    border-color: var(--gold);
+    border-style: solid;
+    border-width: 0;
+  }
+  .hud-panel::before {
+    top: -1px;
+    left: -1px;
+    border-top-width: 1px;
+    border-left-width: 1px;
+  }
+  .hud-panel::after {
+    right: -1px;
+    bottom: -1px;
+    border-right-width: 1px;
+    border-bottom-width: 1px;
+  }
+  .hud-panel[data-active="true"] {
+    border-color: var(--gold-line);
+    box-shadow:
+      0 0 2.2rem rgb(236 182 95 / 0.13),
+      inset 0 0 1.8rem rgb(236 182 95 / 0.04);
+  }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.7rem;
+    min-height: 2.5rem;
+    padding: 0 1.2rem;
+    border: 1px solid var(--gold-line);
+    font-family: var(--font-display), sans-serif;
+    font-size: 0.74rem;
+    font-weight: 600;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--text);
+    cursor: pointer;
+    transition:
+      background 220ms ease,
+      color 220ms ease,
+      border-color 220ms ease,
+      box-shadow 220ms ease;
+  }
+  .btn:hover {
+    border-color: var(--gold-bright);
+    background: rgb(236 182 95 / 0.13);
+    box-shadow: 0 0 1.4rem rgb(236 182 95 / 0.2);
+  }
+  .btn[data-solid="true"] {
+    border-color: var(--gold);
+    box-shadow: inset 0 0 0.9rem rgb(236 182 95 / 0.16);
+  }
+
+  .tag {
+    display: inline-flex;
+    padding: 0.22rem 0.6rem;
+    border: 1px solid rgb(236 182 95 / 0.32);
+    font-size: 0.68rem;
+    letter-spacing: 0.08em;
+    color: var(--text-soft);
+  }
+
+  .field {
+    width: 100%;
+    background: rgb(0 0 0 / 0.34);
+    border: 1px solid rgb(236 182 95 / 0.28);
+    padding: 0.65rem 0.85rem;
+    font-size: 0.8rem;
+    letter-spacing: 0.06em;
+    color: var(--text);
+    transition:
+      border-color 200ms ease,
+      box-shadow 200ms ease;
+  }
+  .field::placeholder {
+    color: var(--text-muted);
+  }
+  .field:focus {
+    outline: none;
+    border-color: var(--gold);
+    box-shadow: 0 0 1rem rgb(236 182 95 / 0.14);
+  }
+
+  /* Side menus on each page: number, label, glowing dot on the current row. */
+  .side-item {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 1.2rem;
+    padding: 0.5rem 0;
+    font-family: var(--font-display), sans-serif;
+    font-size: 0.88rem;
+    font-weight: 500;
+    letter-spacing: 0.19em;
+    text-transform: uppercase;
+    color: var(--text-soft);
+    cursor: pointer;
+    transition:
+      color 200ms ease,
+      transform 200ms ease;
+  }
+  .side-item:hover {
+    color: var(--text);
+    transform: translateX(0.25rem);
+  }
+  .side-item[data-active="true"] {
+    color: var(--gold);
+  }
+  .side-item[data-active="true"]::before {
+    content: "";
+    position: absolute;
+    left: -1.55rem;
+    width: 0.34rem;
+    height: 0.34rem;
+    border-radius: 50%;
+    background: var(--gold-bright);
+    box-shadow: 0 0 0.7rem var(--gold);
+  }
+
+}
+
+/* Vertical gold rail down the left edge of every page. */
+.edge-rail {
+  position: fixed;
+  z-index: 9;
+  left: var(--gutter);
+  top: 2rem;
+  bottom: 2rem;
+  width: 1px;
+  pointer-events: none;
+  background: linear-gradient(
+    to bottom,
+    var(--gold) 0,
+    var(--gold) 1.8rem,
+    transparent 1.8rem,
+    transparent 7rem,
+    var(--gold-faint) 7rem,
+    var(--gold-faint) calc(100% - 7rem),
+    transparent calc(100% - 7rem),
+    transparent calc(100% - 3.4rem),
+    var(--gold) calc(100% - 3.4rem)
+  );
+}
+
+@media (max-width: 1023px) {
+  .edge-rail {
+    display: none;
+  }
+}
+
+/* Staggered entrance. Activity toggles display, which restarts these on re-show. */
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(0.9rem);
+    filter: blur(3px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+    filter: none;
+  }
+}
+@keyframes slide-left {
+  from {
+    opacity: 0;
+    transform: translateX(1.6rem);
+    filter: blur(3px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+    filter: none;
+  }
+}
+@keyframes spin-slow {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes blink {
+  50% {
+    opacity: 0;
+  }
+}
+@keyframes loader {
+  0% {
+    transform: scaleX(0);
+    transform-origin: left;
+  }
+  49% {
+    transform: scaleX(1);
+    transform-origin: left;
+  }
+  50% {
+    transform: scaleX(1);
+    transform-origin: right;
+  }
+  100% {
+    transform: scaleX(0);
+    transform-origin: right;
+  }
+}
+
+.rise {
+  animation: rise 900ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  animation-delay: calc(var(--d, 0) * 90ms + 180ms);
+}
+.slide-left {
+  animation: slide-left 950ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  animation-delay: calc(var(--d, 0) * 90ms + 180ms);
+}
+.caret {
+  animation: blink 1.15s steps(1) infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rise,
+  .slide-left,
+  .caret {
+    animation: none;
+  }
+  .page {
+    transition: none;
+  }
 }
