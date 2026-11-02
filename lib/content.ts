@@ -16,7 +16,12 @@ export type Project = {
   features: string[];
   categories: ProjectCategory[];
   image: string;
+  /** Logos are shown whole; photos fill their frame. */
+  fit?: "contain";
+  /** Keeps the important part of a photo in view in wide, short frames. */
+  imagePosition?: string;
   gallery: string[];
+  credit?: string;
   live?: string;
   github?: string;
 };
@@ -65,7 +70,10 @@ export const projects: Project[] = [
     ],
     categories: ["web", "systems"],
     image: "/art/elvicor.webp",
+    imagePosition: "center top",
     gallery: ["/art/elvicor.webp", "/art/elvicor-dash.webp"],
+    credit:
+      "Building: Google Street View. Dashboard placeholder: Luke Chesser on Unsplash.",
     github: "https://github.com/AdrianJaspa",
   },
   {
@@ -80,6 +88,7 @@ export const projects: Project[] = [
     features: ["Task dashboard", "Create and organise tasks", "Responsive UI"],
     categories: ["web"],
     image: "/art/todo.webp",
+    fit: "contain",
     gallery: ["/art/todo.webp"],
     github: "https://github.com/AdrianJaspa",
   },
@@ -95,6 +104,7 @@ export const projects: Project[] = [
     features: ["Branching story", "Educational content", "Thesis research"],
     categories: ["games", "academic"],
     image: "/art/up-visions.webp",
+    imagePosition: "center 34%",
     gallery: ["/art/up-visions.webp"],
     github: "https://github.com/AdrianJaspa",
   },

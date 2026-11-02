@@ -90,7 +90,7 @@ export function AboutView() {
           </div>
           <div className="border-gold-faint md:border-l md:pl-5">
             <div className="relative aspect-[16/7] overflow-hidden border border-gold-faint">
-              <Image src="/art/world.webp" alt="A spired city beneath a ringed moon" fill sizes="(max-width: 768px) 100vw, 17vw" className="object-cover" />
+              <Image src="/art/world.webp" alt="A black hole over a dark sea, rendered in real time" fill sizes="(max-width: 768px) 100vw, 17vw" className="object-cover" />
             </div>
             <div className="mt-3 flex items-end justify-between">
               <p className="label text-[0.66rem] leading-[1.5] text-soft">
@@ -123,7 +123,10 @@ export function AboutView() {
             <SectionLabel no="03">Education</SectionLabel>
             <div className="mt-3 flex gap-4">
               <div className="relative w-[7.2rem] shrink-0 overflow-hidden border border-gold-faint">
-                <Image src="/art/campus.webp" alt="A campus clock tower at dusk" fill sizes="10vw" className="object-cover" />
+                <Image src="/art/campus.webp" alt="The Oblation statue at the University of the Philippines Visayas" fill sizes="10vw" className="object-cover" />
+                <span className="absolute inset-x-0 bottom-0 bg-ink/80 px-1.5 py-1 text-[0.52rem] leading-snug tracking-wide text-soft">
+                  Photo: Marcos Caratao Jr. / exploreiloilo.com
+                </span>
               </div>
               <div className="min-w-0 py-1">
                 <h3 className="display text-[0.92rem] tracking-[0.1em] text-text">BS Computer and Information Science</h3>

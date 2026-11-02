@@ -121,9 +121,25 @@ export function ProjectsView() {
           </div>
         </div>
 
-        <div className="relative mt-3 aspect-[16/8.8] shrink-0 overflow-hidden border border-gold-faint">
-          <Image key={project.id} src={project.image} alt={`${project.title} preview`} fill sizes="(max-width: 1024px) 100vw, 22vw" className="object-cover" />
+        <div className="mt-3 flex aspect-[16/7.6] shrink-0 gap-1">
+          {project.gallery.map((src, index) => (
+            <div
+              key={src}
+              className={`relative overflow-hidden border border-gold-faint ${index === 0 ? "flex-[3]" : "flex-[2]"}`}
+            >
+              <Image
+                src={src}
+                alt={index === 0 ? `${project.title} preview` : `${project.title} image ${index + 1}`}
+                fill
+                sizes="(max-width: 1024px) 60vw, 14vw"
+                className={project.fit === "contain" ? "object-contain" : "object-cover"}
+              />
+            </div>
+          ))}
         </div>
+        {project.credit && (
+          <p className="mt-1 text-[0.56rem] leading-snug tracking-wide text-muted">{project.credit}</p>
+        )}
 
         <h2 className="display mt-4 text-[1.32rem] leading-[1.2] text-gold">
           {project.headline.map((line) => (
@@ -177,15 +193,6 @@ export function ProjectsView() {
           </ul>
         </div>
 
-        {project.gallery.length > 1 && (
-          <div className="mt-auto flex gap-2 pt-3">
-            {project.gallery.map((src) => (
-              <div key={src} className="relative aspect-[16/9] flex-1 overflow-hidden border border-gold-faint">
-                <Image src={src} alt="" fill sizes="8vw" className="object-cover" />
-              </div>
-            ))}
-          </div>
-        )}
       </article>
     </main>
   );

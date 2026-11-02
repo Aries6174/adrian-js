@@ -113,7 +113,8 @@ export default function HomePage() {
                   alt=""
                   fill
                   sizes="(max-width: 768px) 100vw, 33vw"
-                  className="object-cover object-center opacity-50 transition-all duration-700 group-hover:scale-105 group-hover:opacity-80"
+                  className={`${project.fit === "contain" ? "object-contain opacity-90" : "object-cover opacity-50"} transition-all duration-700 group-hover:scale-105 group-hover:opacity-80`}
+                  style={{ objectPosition: project.imagePosition ?? "center" }}
                 />
                 <span className="absolute inset-0 bg-gradient-to-r from-ink/95 via-ink/70 to-transparent" />
                 <span className="relative flex h-full flex-col justify-between p-3.5">
