@@ -89,6 +89,12 @@ body {
     opacity: 0;
   }
 
+  .display,
+  .label,
+  .copy {
+    text-shadow: 0 0 0.9rem rgb(5 4 3 / 0.85);
+  }
+
   .label {
     font-family: var(--font-display), sans-serif;
     font-size: 0.72rem;
@@ -121,18 +127,21 @@ body {
 
   .rule {
     display: block;
-    width: 1.7rem;
+    width: 2.6rem;
     height: 1px;
-    background: var(--gold);
+    background: linear-gradient(90deg, var(--gold-bright), transparent);
   }
 
   /* Glass panels with the small gold corner brackets from the references. */
   .hud-panel {
     position: relative;
-    background: var(--panel);
+    background: linear-gradient(155deg, rgb(30 22 12 / 0.58), rgb(7 5 3 / 0.76) 58%);
     border: 1px solid var(--gold-faint);
-    -webkit-backdrop-filter: blur(9px);
-    backdrop-filter: blur(9px);
+    box-shadow:
+      inset 0 1px 0 rgb(255 224 170 / 0.09),
+      0 1.2rem 2.6rem rgb(0 0 0 / 0.38);
+    -webkit-backdrop-filter: blur(13px) saturate(1.25);
+    backdrop-filter: blur(13px) saturate(1.25);
     transition:
       border-color 320ms ease,
       box-shadow 320ms ease;
@@ -163,8 +172,10 @@ body {
   .hud-panel[data-active="true"] {
     border-color: var(--gold-line);
     box-shadow:
-      0 0 2.2rem rgb(236 182 95 / 0.13),
-      inset 0 0 1.8rem rgb(236 182 95 / 0.04);
+      inset 0 1px 0 rgb(255 224 170 / 0.16),
+      0 0 2.4rem rgb(236 182 95 / 0.14),
+      0 1.2rem 2.6rem rgb(0 0 0 / 0.38),
+      inset 0 0 1.8rem rgb(236 182 95 / 0.05);
   }
 
   .btn {
@@ -175,6 +186,7 @@ body {
     min-height: 2.5rem;
     padding: 0 1.2rem;
     border: 1px solid var(--gold-line);
+    background: linear-gradient(180deg, rgb(236 182 95 / 0.09), rgb(236 182 95 / 0.015));
     font-family: var(--font-display), sans-serif;
     font-size: 0.74rem;
     font-weight: 600;
@@ -195,13 +207,17 @@ body {
   }
   .btn[data-solid="true"] {
     border-color: var(--gold);
-    box-shadow: inset 0 0 0.9rem rgb(236 182 95 / 0.16);
+    background: linear-gradient(180deg, rgb(236 182 95 / 0.24), rgb(236 182 95 / 0.07));
+    box-shadow:
+      inset 0 1px 0 rgb(255 224 170 / 0.25),
+      0 0 1.2rem rgb(236 182 95 / 0.12);
   }
 
   .tag {
     display: inline-flex;
     padding: 0.22rem 0.6rem;
-    border: 1px solid rgb(236 182 95 / 0.32);
+    border: 1px solid rgb(236 182 95 / 0.28);
+    background: rgb(236 182 95 / 0.05);
     font-size: 0.68rem;
     letter-spacing: 0.08em;
     color: var(--text-soft);

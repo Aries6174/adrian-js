@@ -186,6 +186,7 @@ uniform float uDetail;
 uniform float uBump;
 uniform float uRimAmount;
 uniform float uRimPower;
+uniform float uPanel;
 uniform vec3 uLightPos[4];
 uniform vec3 uLightCol[4];
 uniform float uLightK[4];
@@ -208,6 +209,21 @@ void main(){
   if(dot(N,V)<0.) N=-N;
   vec3 albedo=uColor*vTint;
   float wet=1.;
+  vec3 emit=vec3(0.);
+  #ifdef PANELS
+    // Plating drawn from world position, so any box reads as built structure.
+    vec3 an=abs(normalize(vN));
+    vec2 puv=an.y>.6?vW.xz:(an.x>an.z?vW.zy:vW.xy);
+    vec2 cell=puv/vec2(uPanel,uPanel*1.7);
+    vec2 id=floor(cell),pf=fract(cell);
+    float ph=hash21(id);
+    float seam=smoothstep(0.,.035,pf.x)*smoothstep(1.,.965,pf.x)*smoothstep(0.,.022,pf.y)*smoothstep(1.,.978,pf.y);
+    float rivet=smoothstep(.45,.5,abs(fract(cell.y*5.)-.5))*.25;
+    albedo*=(.5+ph*1.15)*(.28+.72*seam)*(1.-rivet);
+    wet=.6+ph*1.2;
+    float slot=step(.975,ph)*step(.47,pf.x)*step(pf.x,.53)*step(.12,pf.y)*step(pf.y,.88);
+    emit=vec3(1.,.52,.16)*slot*(.5+.25*sin(ph*90.));
+  #endif
   #ifdef DETAIL
     float lod=1./(1.+length(cameraPosition-vW)*uDetail*.035);
     vec3 q=vW*uDetail;
@@ -217,7 +233,8 @@ void main(){
     N=normalize(N-g*uBump*lod);
     albedo*=mix(1.,.55+n0*.95,lod);
     albedo=mix(albedo,uAccent,smoothstep(.45,.82,N.y)*smoothstep(.42,.62,vnoise3(q*.55+7.))*.75);
-    wet=mix(.6,pow(vnoise3(q*1.7),3.)*7.,lod);
+    float puddle=smoothstep(.56,.74,vnoise3(q*.3+3.));
+    wet=mix(.12,.12+puddle*4.5+pow(vnoise3(q*2.3),5.)*9.,lod);
   #endif
   vec3 col=albedo*uAmbient*(.55+.45*N.y);
   for(int i=0;i<4;i++){
@@ -233,6 +250,7 @@ void main(){
   float fres=pow(clamp(1.-dot(N,V),0.,1.),uRimPower);
   float back=.35+.65*max(dot(-V,uRimDir),0.);
   col+=uRimCol*fres*back*uRimAmount;
+  col+=emit;
   float dist=length(cameraPosition-vW);
   float fog=1.-exp(-uFogDensity*uFogDensity*dist*dist);
   gl_FragColor=vec4(mix(col,uFogColor,fog),1.);
@@ -247,6 +265,7 @@ export function surface(
     spec?: number;
     rim?: number;
     rimPower?: number;
+    panel?: number;
     flat?: boolean;
     detail?: number;
     bump?: number;
@@ -258,6 +277,7 @@ export function surface(
     defines: {
       ...(options.flat ? { FLAT: 1 } : {}),
       ...(options.detail ? { DETAIL: 1 } : {}),
+      ...(options.panel ? { PANELS: 1 } : {}),
     },
     uniforms: {
       ...world,
@@ -270,6 +290,7 @@ export function surface(
       uBump: { value: options.bump ?? 0.5 },
       uRimAmount: { value: options.rim ?? 1 },
       uRimPower: { value: options.rimPower ?? 4.5 },
+      uPanel: { value: options.panel ?? 1 },
     },
   });
   return material;

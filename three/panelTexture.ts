@@ -83,32 +83,58 @@ function ridges(
   ctx.rect(x, y, w, h);
   ctx.clip();
   const sky = ctx.createLinearGradient(0, y, 0, y + h);
-  sky.addColorStop(0, "#14100c");
-  sky.addColorStop(0.65, "#3b2a18");
-  sky.addColorStop(0.82, "#a4733a");
+  sky.addColorStop(0, "#0d0a08");
+  sky.addColorStop(0.55, "#2c1e11");
+  sky.addColorStop(0.78, "#c98a42");
+  sky.addColorStop(0.9, "#f4c684");
   ctx.fillStyle = sky;
   ctx.fillRect(x, y, w, h);
-  for (let i = 0; i < 180; i++) {
-    ctx.fillStyle = `rgba(255,236,205,${rand() * 0.8})`;
-    const size = rand() * 1.6 + 0.5;
-    ctx.fillRect(x + rand() * w, y + rand() * h * 0.7, size, size);
+  for (let i = 0; i < 260; i++) {
+    const size = Math.pow(rand(), 3) * 2.2 + 0.5;
+    ctx.fillStyle = `rgba(255,236,205,${0.2 + rand() * 0.8})`;
+    ctx.fillRect(x + rand() * w, y + rand() * h * 0.62, size, size);
   }
+  // A moon with a lit limb.
+  const mx = x + w * (0.25 + rand() * 0.5);
+  const my = y + h * (0.22 + rand() * 0.16);
+  const mr = h * (0.09 + rand() * 0.08);
+  const halo = ctx.createRadialGradient(mx, my, mr * 0.7, mx, my, mr * 2.6);
+  halo.addColorStop(0, "rgba(255,206,140,0.34)");
+  halo.addColorStop(1, "rgba(255,206,140,0)");
+  ctx.fillStyle = halo;
+  ctx.fillRect(x, y, w, h);
+  ctx.fillStyle = "#0c0906";
+  ctx.beginPath();
+  ctx.arc(mx, my, mr, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = "rgba(255,214,150,0.95)";
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.arc(mx, my, mr, -2.4, 0.5);
+  ctx.stroke();
   [
-    { base: 0.62, rough: 0.28, color: "#2a221b" },
-    { base: 0.74, rough: 0.3, color: "#15110d" },
-    { base: 0.88, rough: 0.2, color: "#060504" },
+    { base: 0.6, rough: 0.28, color: "#3a2a1a", edge: "rgba(255,190,110,0.28)" },
+    { base: 0.72, rough: 0.3, color: "#1d150e", edge: "rgba(255,190,110,0.5)" },
+    { base: 0.87, rough: 0.2, color: "#070504", edge: "rgba(255,190,110,0.8)" },
   ].forEach((layer) => {
+    const top: [number, number][] = [];
+    let level = layer.base;
+    for (let px = 0; px <= w + 8; px += 8) {
+      level += (rand() - 0.5) * 0.075;
+      level = Math.min(layer.base + layer.rough * 0.4, Math.max(layer.base - layer.rough, level));
+      top.push([x + px, y + h * level]);
+    }
     ctx.fillStyle = layer.color;
     ctx.beginPath();
     ctx.moveTo(x, y + h);
-    let level = layer.base;
-    for (let px = 0; px <= w + 12; px += 12) {
-      level += (rand() - 0.5) * 0.09;
-      level = Math.min(layer.base + layer.rough * 0.4, Math.max(layer.base - layer.rough, level));
-      ctx.lineTo(x + px, y + h * level);
-    }
+    top.forEach(([px, py]) => ctx.lineTo(px, py));
     ctx.lineTo(x + w, y + h);
     ctx.fill();
+    ctx.strokeStyle = layer.edge;
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    top.forEach(([px, py], index) => (index ? ctx.lineTo(px, py) : ctx.moveTo(px, py)));
+    ctx.stroke();
   });
   ctx.restore();
 }

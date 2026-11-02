@@ -1,9 +1,9 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import { mergeVertices } from "three/examples/jsm/utils/BufferGeometryUtils.js";
-import { Asteroids, BlackHole, DustDisk, Figure, Sky, type SkyOptions } from "../parts";
+import { Asteroids, BlackHole, DustDisk, Figure, rockGeometry, Sky, type SkyOptions } from "../parts";
 import {
   diskBasis,
   fbm,
@@ -13,6 +13,7 @@ import {
   noiseUniforms,
   type Pose,
   ridged,
+  seeded,
   smoothstep,
   surface,
   uTime,
@@ -35,24 +36,24 @@ export const INTRO_POSE: Pose = {
 };
 
 const SKY: SkyOptions = {
-  zenith: "#030303",
-  horizon: "#1a120a",
+  zenith: "#010101",
+  horizon: "#0e0a06",
   sunDir: SUN,
   sun: "#ffc06e",
-  sunPower: 1.5,
+  sunPower: 1.7,
   glow: "#d3812c",
-  glowPower: .8,
+  glowPower: .7,
   clouds: 1,
-  cloudTop: 0.2,
+  cloudTop: 0.21,
   cloudScale: 3.6,
-  cloudShade: "#060504",
-  cloudLit: "#f2a650",
+  cloudShade: "#0c0906",
+  cloudLit: "#efa55a",
   nebulaA: "#6a4018",
   nebulaB: "#ffbb6a",
-  nebula: 0.5,
+  nebula: 0.75,
   nebulaDir: [HOLE[0] - EYE[0], HOLE[1] - EYE[1], HOLE[2] - EYE[2]],
-  nebulaFocus: 12,
-  stars: 1,
+  nebulaFocus: 7,
+  stars: 1.5,
 };
 
 const coastX = (z: number) => -14 - 0.15 * (15 - z);
@@ -73,25 +74,32 @@ function makeFlat(x: number, z: number) {
   return smoothstep(2.4, 0.7, Math.sqrt(dx * dx + dz * dz));
 }
 
+function headlandHeight(x: number, z: number) {
+  const wobble = (fbm(x * 0.16, 0.5, z * 0.16, 3) - 0.5) * 9;
+  const left = smoothstep(-5.5, -2.2, x + wobble * 0.4 + (z - 12) * 0.12);
+  const back = smoothstep(3.5 - x * 0.38, 10 - x * 0.22, z + wobble * 0.6);
+  const mass = left * back;
+  const rise = 5.35 - Math.max(0, x) * 0.045;
+  const crag =
+    ridged(x * 0.26, 0, z * 0.26, 3) * 1.55 +
+    ridged(x * 1.05, 3, z * 1.05, 2) * 0.5 +
+    ridged(x * 3.2, 6, z * 3.2, 2) * 0.13 -
+    1.02;
+  const y = mass * (rise + crag * 0.85) - (1 - mass) * 1.2;
+  return THREE.MathUtils.lerp(y, 5.42, makeFlat(x, z));
+}
+
 /** The headland the explorer stands on, filling the lower centre and right. */
 function foregroundGeometry() {
-  const columns = 420;
-  const rows = 230;
+  const columns = 520;
+  const rows = 280;
   const vertices: number[] = [];
   const indices: number[] = [];
   for (let r = 0; r <= rows; r++) {
     const z = -8 + (r / rows) * 34;
     for (let c = 0; c <= columns; c++) {
       const x = -13 + (c / columns) * 66;
-      const wobble = (fbm(x * 0.16, 0.5, z * 0.16, 3) - 0.5) * 9;
-      const left = smoothstep(-5.5, -2.2, x + wobble * 0.4 + (z - 12) * 0.12);
-      const back = smoothstep(3.5 - x * 0.38, 10 - x * 0.22, z + wobble * 0.6);
-      const mass = left * back;
-      const rise = 5.35 - Math.max(0, x) * 0.045;
-      const crag = ridged(x * 0.42, 0, z * 0.42, 5) * 1.25 + fbm(x * 1.6, 2, z * 1.6, 3) * 0.65 - 0.9;
-      let y = mass * (rise + crag * 0.8) - (1 - mass) * 1.2;
-      y = THREE.MathUtils.lerp(y, 5.42, makeFlat(x, z));
-      vertices.push(x, y, z);
+      vertices.push(x, headlandHeight(x, z), z);
     }
   }
   for (let r = 0; r < rows; r++) {
@@ -106,6 +114,50 @@ function foregroundGeometry() {
   geometry.setIndex(indices);
   geometry.computeVertexNormals();
   return geometry;
+}
+
+/** Loose rocks scattered over the headland to break up its outline. */
+function Boulders({ world }: { world: World }) {
+  const ref = useRef<THREE.InstancedMesh>(null);
+  const { geometry, material, placed } = useMemo(() => {
+    const rand = seeded(77);
+    const object = new THREE.Object3D();
+    const placed: THREE.Matrix4[] = [];
+    while (placed.length < 150) {
+      const x = -4 + rand() * 30;
+      const z = 3 + rand() * 18;
+      if (Math.hypot(x, z - 12) < 1.4) continue;
+      const y = headlandHeight(x, z);
+      if (y < 2.4) continue;
+      object.position.set(x, y - 0.05, z);
+      const size = 0.08 + Math.pow(rand(), 4) * 0.72;
+      object.scale.set(size * (0.8 + rand() * 0.8), size * (0.5 + rand() * 0.5), size * (0.8 + rand() * 0.8));
+      object.rotation.set(rand() * 6, rand() * 6, rand() * 6);
+      object.updateMatrix();
+      placed.push(object.matrix.clone());
+    }
+    return {
+      geometry: rockGeometry(9),
+      material: surface(world, {
+        color: "#231d17",
+        accent: "#2e2d13",
+        flat: true,
+        detail: 3.4,
+        bump: 0.9,
+        shine: 160,
+        spec: 1.3,
+        rim: 0.12,
+      }),
+      placed,
+    };
+  }, [world]);
+  useEffect(() => {
+    const mesh = ref.current;
+    if (!mesh) return;
+    placed.forEach((matrix, index) => mesh.setMatrixAt(index, matrix));
+    mesh.instanceMatrix.needsUpdate = true;
+  }, [placed]);
+  return <instancedMesh ref={ref} args={[geometry, material, placed.length]} frustumCulled={false} />;
 }
 
 /** x of the waterline along the coast. Shared with the water so the foam meets the cliffs. */
@@ -195,9 +247,9 @@ void main(){
   R.y=abs(R.y);
   float F=.03+.97*pow(1.-max(dot(N,V),0.),5.);
   float s=max(dot(R,uSunDir),0.);
-  vec3 sky=mix(uGlow*(.08+pow(s,5.)*1.1),uSky,smoothstep(0.,.3,R.y));
+  vec3 sky=mix(uGlow*(.006+pow(s,70.)*1.3),uSky,smoothstep(0.,.3,R.y));
   vec3 col=mix(uDeep,sky,F);
-  float col_spec=pow(s,300.)*9.+pow(s,60.)*.32;
+  float col_spec=pow(s,400.)*9.+pow(s,110.)*.25;
   col+=uSun*col_spec*.45;
   // Foam: broken white water against the cliffs and around each stack.
   float along=clamp((${COAST_NEAR.toFixed(1)}-p.y)/${COAST_LENGTH.toFixed(1)},0.,1.);
@@ -214,10 +266,10 @@ void main(){
   float foam=smoothstep(.62-reach*.4,.82-reach*.3,f1*.65+f2*.45)*reach;
   foam+=smoothstep(.56,.74,f2)*smoothstep(.2,1.,reach)*.45;
   float crests=smoothstep(.72,.95,vnoise(p*vec2(.16,.5)+vec2(uTime*.1,0.)))*.025;
-  col=mix(col,vec3(.34,.31,.27),clamp(foam,0.,1.));
+  col=mix(col,vec3(.66,.62,.56),clamp(foam,0.,1.));
   col+=crests*vec3(.8,.72,.6);
   float far=1.-exp(-dist*dist*.0000065);
-  gl_FragColor=vec4(mix(col,uSky*.6+uGlow*.2,far),1.);
+  gl_FragColor=vec4(mix(col,uSky*.7+uGlow*.012,far),1.);
 }`;
 
 function coastTexture() {
@@ -252,8 +304,8 @@ function Water() {
           uTime,
           uSunDir: { value: new THREE.Vector3(...SUN).normalize() },
           uSun: { value: new THREE.Color("#ffb868").multiplyScalar(1.5) },
-          uDeep: { value: new THREE.Color("#050608") },
-          uSky: { value: new THREE.Color("#14100b") },
+          uDeep: { value: new THREE.Color("#07090c") },
+          uSky: { value: new THREE.Color("#2a2c2e") },
           uGlow: { value: new THREE.Color("#c67a30") },
           uRocks: { value: STACKS.map((s) => new THREE.Vector4(s[0], s[1], s[2], s[3])) },
         },
@@ -274,23 +326,23 @@ function Land({ world }: { world: World }) {
       coast: coastGeometry(),
       stacks: [stackGeometry(1), stackGeometry(4), stackGeometry(7), stackGeometry(11)],
       rock: surface(world, {
-        color: "#201a15",
-        accent: "#2c2814",
+        color: "#262019",
+        accent: "#35331a",
         flat: true,
-        detail: 2.3,
-        bump: 0.8,
-        shine: 120,
-        spec: 1.1,
-        rim: 0.16,
+        detail: 3.4,
+        bump: 0.85,
+        shine: 170,
+        spec: 0.8,
+        rim: 0.08,
       }),
       farRock: surface(world, {
         color: "#1f1a15",
         accent: "#2a2613",
-        detail: 0.9,
-        bump: 0.6,
+        detail: 1.7,
+        bump: 1.2,
         shine: 30,
-        spec: 0.25,
-        rim: 0.45,
+        spec: 0.2,
+        rim: 0.1,
       }),
     }),
     [world],
@@ -319,12 +371,12 @@ export function IntroScene({ visible }: { visible: boolean }) {
     () => ({
       world: makeWorld({
         lights: [
-          { pos: HOLE, color: "#ffb35e", power: 0.4, falloff: 0.000002 },
+          { pos: HOLE, color: "#ffb35e", power: 0.95, falloff: 0.000002 },
           { pos: [-200, 16, -1000], color: "#ff9d48", power: 0.24, falloff: 0 },
           { pos: [8, 40, 40], color: "#8d7a64", power: 0.05, falloff: 0 },
         ],
         ambient: "#3a2f24",
-        ambientPower: 0.1,
+        ambientPower: 0.17,
         fog: "#1d150d",
         fogDensity: 0.0035,
         rimDir: SUN,
@@ -343,30 +395,31 @@ export function IntroScene({ visible }: { visible: boolean }) {
       <DustDisk
         position={HOLE}
         quaternion={basis}
-        count={9000}
-        rMin={70}
-        rMax={285}
-        thickness={34}
+        count={26000}
+        rMin={96}
+        rMax={300}
+        thickness={20}
         arms={3}
         twist={3}
-        size={24}
+        size={9}
         speed={8}
-        intensity={1.2}
+        intensity={0.85}
       />
       <Asteroids
         scene="intro"
         world={world}
         position={HOLE}
         quaternion={basis}
-        count={70}
-        rMin={72}
-        rMax={205}
-        thickness={30}
-        size={4.6}
+        count={130}
+        rMin={85}
+        rMax={185}
+        thickness={12}
+        size={2.5}
       />
       <Water />
       <Land world={world} />
-      <Figure kind="hood" position={[0, 5.36, 12]} scale={1} rim={1.6} />
+      <Boulders world={world} />
+      <Figure world={world} kind="hood" position={[0, 5.36, 12]} scale={1} rim={1.5} />
     </group>
   );
 }

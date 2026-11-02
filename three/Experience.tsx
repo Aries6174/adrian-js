@@ -201,7 +201,7 @@ function PostFX() {
     const composer = new EffectComposer(gl, target);
     composer.addPass(new RenderPass(scene, camera));
     composer.addPass(new ShaderPass(CLAMP));
-    composer.addPass(new UnrealBloomPass(new THREE.Vector2(4, 4), 0.07, 0.55, 1));
+    composer.addPass(new UnrealBloomPass(new THREE.Vector2(4, 4), 0.11, 0.6, 1));
     const snapshot = new SavePass();
     composer.addPass(snapshot);
     // Passing a material keeps the shared uniforms; a plain object would be cloned.

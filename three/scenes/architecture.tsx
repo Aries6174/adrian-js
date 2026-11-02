@@ -54,11 +54,13 @@ export function Rotunda({
   columns?: number;
   center?: [number, number];
 }) {
-  const { dark, trim, strip, faint, pillars, strips, faintStrips, ribs } = useMemo(() => {
+  const { dark, trim, strip, faint, pillars, strips, faintStrips, ribs, mullions, sills } = useMemo(() => {
     const pillars: number[][] = [];
     const strips: number[][] = [];
     const faintStrips: number[][] = [];
     const ribs: number[][] = [];
+    const mullions: number[][] = [];
+    const sills: number[][] = [];
     const rand = seeded(9);
     for (let i = 0; i < columns; i++) {
       const a = ((i + 0.5) / columns) * Math.PI * 2;
@@ -80,6 +82,29 @@ export function Rotunda({
         strips.push([ox, 2.3 + top / 2, oz, 0.05, top, 0.05, ry]);
         faintStrips.push([ox, height * 0.42 + 4 + top / 2, oz, 0.04, top * 0.9, 0.04, ry]);
       }
+      // Glazing between this column and the next.
+      const gapAngle = a + Math.PI / columns;
+      const gx = center[0] + Math.cos(gapAngle) * radius;
+      const gz = center[1] + Math.sin(gapAngle) * radius;
+      const gapRotation = -gapAngle + Math.PI / 2;
+      const bay = (2 * Math.PI * radius) / columns - 2.4;
+      if (Math.sin(gapAngle) < 0.3) {
+        for (const level of [0.16, 0.3, 0.42, 0.57, 0.72, 0.86]) {
+          mullions.push([gx, height * level, gz, bay, 0.13, 0.13, gapRotation]);
+        }
+        for (const offset of [-1 / 3, 1 / 3]) {
+          mullions.push([
+            gx - Math.sin(gapAngle) * bay * offset,
+            height / 2,
+            gz + Math.cos(gapAngle) * bay * offset,
+            0.1,
+            height,
+            0.1,
+            gapRotation,
+          ]);
+        }
+        sills.push([gx, 0.5, gz, bay, 0.05, 0.05, gapRotation]);
+      }
       for (let k = 0; k < 2; k++) {
         const rib = radius - 3;
         const ra = a + (k * Math.PI) / columns;
@@ -97,14 +122,16 @@ export function Rotunda({
       }
     }
     return {
-      dark: surface(world, { color: "#0f0b07", shine: 60, spec: 0.5, rim: 0.3 }),
-      trim: surface(world, { color: "#1b130b", shine: 50, spec: 0.6, rim: 0.4 }),
-      strip: glow("#ffb45e", 3.2),
+      dark: surface(world, { color: "#1b1610", shine: 60, spec: 0.7, rim: 0.3, panel: 1.5 }),
+      trim: surface(world, { color: "#241a10", shine: 50, spec: 0.7, rim: 0.4, panel: 2.1 }),
+      strip: glow("#ffa64e", 2),
       faint: glow("#ffac58", 1),
       pillars,
       strips,
       faintStrips,
       ribs,
+      mullions,
+      sills,
     };
   }, [world, radius, height, columns, center]);
 
@@ -116,6 +143,8 @@ export function Rotunda({
       <Boxes items={strips} material={strip} />
       <Boxes items={faintStrips} material={faint} />
       <Boxes items={ribs} material={trim} />
+      <Boxes items={mullions} material={trim} />
+      <Boxes items={sills} material={faint} />
       {[height * 0.42, height * 0.72, height].map((y) => (
         <mesh key={y} position={ringPosition(y)} rotation={[Math.PI / 2, 0, 0]} material={dark}>
           <torusGeometry args={[radius - 0.8, 0.75, 8, 96]} />
@@ -197,7 +226,7 @@ export function Console({
 }) {
   const { body, trim, map } = useMemo(
     () => ({
-      body: surface(world, { color: "#1b140c", shine: 40, spec: 0.8, rim: 0.75 }),
+      body: surface(world, { color: "#221910", shine: 40, spec: 0.8, rim: 0.5, panel: 0.5 }),
       trim: glow("#ffb45e", 3.6),
       map: texture ?? chartTexture(seed),
     }),

@@ -167,7 +167,7 @@ export function ProjectsScene({ visible }: { visible: boolean }) {
         position={HOLE}
         quaternion={basis}
         count={8000}
-        rMin={6.8}
+        rMin={8.4}
         rMax={34}
         thickness={4}
         arms={2}
@@ -185,7 +185,7 @@ export function ProjectsScene({ visible }: { visible: boolean }) {
         rMin={9}
         rMax={28}
         thickness={9}
-        size={0.85}
+        size={0.55}
         speed={0.06}
       />
       <LightShaft position={[1.5, 19, 0]} radiusTop={4.6} radiusBottom={4.8} height={38} power={0.012} />
@@ -225,7 +225,7 @@ export function ProjectsScene({ visible }: { visible: boolean }) {
         );
       })}
 
-      <Figure kind="casual" position={[-0.9, 0, 9.8]} scale={1.03} rim={1.8} />
+      <Figure world={world} kind="casual" position={[-0.9, 0, 9.8]} scale={1.03} rim={1.8} />
     </group>
   );
 }

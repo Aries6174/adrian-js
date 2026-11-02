@@ -4,6 +4,7 @@ import { type ThreeEvent, useFrame } from "@react-three/fiber";
 import { useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import { Reflector } from "three/examples/jsm/objects/Reflector.js";
+import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import { getStage, type SceneId } from "@/lib/stage";
 import {
   fbm,
@@ -17,6 +18,19 @@ import {
   uTime,
   type World,
 } from "./shared";
+
+/** Worlds stay mounted while hidden, so their clickable parts must opt out of hit testing. */
+function raycastVisible(
+  this: THREE.Mesh,
+  raycaster: THREE.Raycaster,
+  intersects: THREE.Intersection[],
+) {
+  if (!this.visible) return;
+  for (let node = this.parent; node; node = node.parent) {
+    if (!node.visible) return;
+  }
+  THREE.Mesh.prototype.raycast.call(this, raycaster, intersects);
+}
 
 /* ---------------------------------- Black hole ---------------------------------- */
 
@@ -39,23 +53,25 @@ vec4 disk(vec3 hit,vec3 ray){
   float r=length(hit.xz);
   if(r<RIN||r>ROUT) return vec4(0.);
   float a=atan(hit.z,hit.x);
-  float spin=uTime*1.9/pow(r,1.5);
-  float phi=a+spin;
-  vec3 q=vec3(cos(phi)*1.4,sin(phi)*1.4,r*.9);
-  float big=fbm3(q);
-  float arcs=vnoise3(vec3(cos(phi)*.8,sin(phi)*.8,r*7.))*.65+vnoise3(vec3(cos(phi)*1.6,sin(phi)*1.6,r*19.))*.35;
-  float bands=pow(arcs,uBands);
-  float edge=smoothstep(RIN,RIN+.32,r)*pow(smoothstep(ROUT,RIN+1.,r),2.1);
-  float hot=exp(-(r-RIN)*.42);
-  float dens=edge*(.14+bands*2.6)*(.5+big);
+  float phi=a+uTime*1.9/pow(r,1.5);
+  float sp=phi+log(r)*.9;
+  vec2 dir=vec2(cos(sp),sin(sp));
+  float big=fbm3(vec3(dir*1.2,r*.55));
+  float warped=r+(big-.5)*1.5;
+  float arcs=vnoise3(vec3(dir*.9,warped*6.))*.55+vnoise3(vec3(dir*2.2,warped*17.))*.45;
+  float fine=vnoise3(vec3(dir*4.,warped*44.));
+  float bands=pow(arcs,uBands*1.3)*(.3+fine*1.4);
+  float edge=smoothstep(RIN,RIN+.3,r)*pow(smoothstep(ROUT,RIN+.8,r),2.6);
+  float hot=exp(-(r-RIN)*.62);
+  float dens=edge*(.13+bands*2.9)*(.25+big*1.6);
   // The side of the disk rotating toward the viewer burns brighter.
   vec3 tangent=normalize(vec3(-hit.z,0.,hit.x));
   float dop=1.+.62*dot(tangent,-ray);
-  float heat=clamp(dens*(.45+hot*1.2),0.,1.);
-  vec3 c=mix(vec3(.62,.2,.035),vec3(1.,.62,.2),smoothstep(.05,.55,heat));
-  c=mix(c,vec3(1.,.8,.5),smoothstep(.6,1.,heat));
-  c*=dens*(.26+hot*.95)*dop*dop;
-  return vec4(c,clamp(dens*.9,0.,1.));
+  float heat=clamp(dens*(.3+hot*1.3),0.,1.);
+  vec3 c=mix(vec3(.55,.17,.03),vec3(1.,.55,.16),smoothstep(.02,.32,heat));
+  c=mix(c,vec3(1.,.82,.52),smoothstep(.4,.95,heat));
+  c*=dens*(.34+hot*1.55)*dop*dop;
+  return vec4(c,clamp(dens*.8,0.,1.));
 }
 void main(){
   float cr=cos(-uRoll),sr=sin(-uRoll);
@@ -137,14 +153,28 @@ export function BlackHole({
     [tilt, roll, gain, bands, quality],
   );
 
+  const center = useMemo(() => new THREE.Vector3(...position), [position]);
   useFrame(({ camera }) => {
-    ref.current?.quaternion.copy(camera.quaternion);
+    const mesh = ref.current;
+    if (!mesh) return;
+    mesh.quaternion.copy(camera.quaternion);
+    // Sits just ahead of the depth sphere, shrunk to keep the same apparent size.
+    const distance = center.distanceTo(camera.position);
+    const lift = size * 0.2;
+    mesh.position.copy(center).lerp(camera.position, lift / distance);
+    mesh.scale.setScalar((size * (distance - lift)) / distance);
   });
 
   return (
-    <mesh ref={ref} position={position} scale={size} material={material} renderOrder={1}>
-      <planeGeometry args={[2, 2]} />
-    </mesh>
+    <>
+      <mesh position={position} scale={size * 0.178} renderOrder={-5}>
+        <sphereGeometry args={[1, 32, 20]} />
+        <meshBasicMaterial colorWrite={false} />
+      </mesh>
+      <mesh ref={ref} position={position} scale={size} material={material} renderOrder={1}>
+        <planeGeometry args={[2, 2]} />
+      </mesh>
+    </>
   );
 }
 
@@ -168,7 +198,7 @@ void main(){
   float tw=.6+.4*sin(uTime*(1.+aOrbit.w*2.)+aOrbit.w*40.);
   vTint=aTint*tw;
   vFade=1.;
-  gl_PointSize=clamp(aSize*uScale/max(-mv.z,.1),1.,26.);
+  gl_PointSize=clamp(aSize*uScale/max(-mv.z,.1),1.,5.5);
 }`;
 
 const DUST_FRAG = /* glsl */ `
@@ -225,17 +255,17 @@ export function DustDisk({
       let angle = rand() * Math.PI * 2;
       if (arms > 0) {
         const arm = Math.floor(rand() * arms);
-        const scatter = (rand() - 0.5) * (0.35 + k * 0.75);
+        const scatter = (rand() - 0.5) * (0.7 + k * 1.1);
         angle = (arm / arms) * Math.PI * 2 + Math.log(r / rMin + 1) * twist + scatter;
       }
       orbit[i * 4] = r;
       orbit[i * 4 + 1] = angle;
       orbit[i * 4 + 2] = (rand() - 0.5) * thickness * (0.3 + k);
       orbit[i * 4 + 3] = rand();
-      sizes[i] = size * (0.35 + Math.pow(rand(), 6) * 3.4);
+      sizes[i] = size * (0.3 + Math.pow(rand(), 9) * 2.6);
       tint.copy(gold).lerp(pale, rand());
       if (rand() < blue) tint.copy(cool);
-      const brightness = intensity * (0.5 + rand() * 1.5) * (1.15 - k * 0.75);
+      const brightness = intensity * (0.25 + Math.pow(rand(), 3) * 1.6) * (1.15 - k * 0.8);
       tints[i * 3] = tint.r * brightness;
       tints[i * 3 + 1] = tint.g * brightness;
       tints[i * 3 + 2] = tint.b * brightness;
@@ -268,13 +298,13 @@ export function DustDisk({
   );
 }
 
-function rockGeometry(seed: number) {
-  const geometry = new THREE.IcosahedronGeometry(1, 2);
+export function rockGeometry(seed: number) {
+  const geometry = new THREE.IcosahedronGeometry(1, 5);
   const position = geometry.getAttribute("position");
   const v = new THREE.Vector3();
   for (let i = 0; i < position.count; i++) {
     v.fromBufferAttribute(position, i).normalize();
-    const k = 0.62 + fbm(v.x * 1.7 + seed, v.y * 1.7, v.z * 1.7, 3) * 0.85;
+    const k = 0.64 + fbm(v.x * 1.5 + seed, v.y * 1.5, v.z * 1.5, 4) * 0.76;
     position.setXYZ(i, v.x * k, v.y * k * 0.86, v.z * k);
   }
   geometry.computeVertexNormals();
@@ -325,11 +355,13 @@ export function Asteroids({
     return {
       geometry: rockGeometry(seed),
       material: surface(world, {
-        color: "#3a2f22",
-        shine: 26,
-        spec: 0.5,
-        rim: 0.9,
-        flat: true,
+        color: "#33281d",
+        detail: 3,
+        bump: 0.8,
+        shine: 22,
+        spec: 0.35,
+        rim: 0.7,
+        rimPower: 4,
       }),
       rocks,
     };
@@ -413,45 +445,51 @@ float stars(vec3 d,float scale,float rate){
   float s=smoothstep(.13,0.,length(f-o*.7));
   return s*s*(.55+.45*sin(uTime*(.6+h*3.)+h*90.));
 }
-float cloudD(vec2 uv){
-  float n=fbm2(uv);
-  float b=1.-abs(fbm2(uv*1.9+4.)*2.-1.);
-  return n*.72+b*.4;
+vec2 clouds(vec2 uv,float top01){
+  vec2 w=vec2(fbm2(uv*.55+3.),fbm2(uv*.55+9.));
+  float n=fbm2(uv+w*1.4);
+  float wisps=1.-abs(fbm2(uv*2.1+w*2.)*2.-1.);
+  float cover=n*.84+wisps*.2-mix(.1,.74,top01);
+  return vec2(cover,n);
 }
 void main(){
   vec3 d=normalize(vDir);
   float y=d.y;
-  vec3 col=mix(uHorizon,uZenith,smoothstep(-.02,.42,y));
+  vec3 col=mix(uHorizon,uZenith,smoothstep(-.02,.22,y));
   float focus=pow(max(dot(d,uNebDir),0.),uNebFocus);
   if(uNeb>0.){
     vec3 q=d*2.6;
     float warp=fbm3(q*1.3+3.);
     float n=fbm3(q+warp*1.4);
-    float fil=pow(1.-abs(fbm3(q*2.1+warp*2.2+11.)*2.-1.),24.);
-    col+=uNebA*pow(n,3.4)*(.12+focus*2.)*uNeb*.75;
-    col+=uNebB*fil*focus*uNeb*.16;
+    col+=uNebA*pow(n,3.4)*(.08+focus*2.)*uNeb*.75;
   }
   float s=max(dot(d,uSunDir),0.);
   float upper=smoothstep(-.015,.03,y);
+  // A sparse field of bright stars over a dense dusting, thickest around the nebula.
+  float dusting=stars(d,620.,.2+focus*.35)*(.35+focus*2.2);
   col+=uStars*upper*(
-    stars(d,190.,.075)*vec3(1.,.92,.8)*2.1+
-    stars(d,340.,.1)*vec3(.92,.94,1.)*1.2+
-    stars(d,85.,.02)*vec3(1.,.82,.58)*5.);
-  col+=uGlow*exp(-abs(y)*13.)*(.05+pow(s,6.)*.9);
-  col+=uSun*(pow(s,1600.)*9.+pow(s,220.)*1.1+pow(s,50.)*.14)*upper;
+    stars(d,190.,.06)*vec3(1.,.93,.82)*1.7+
+    stars(d,340.,.11)*vec3(.93,.94,1.)*1.1+
+    stars(d,85.,.016)*vec3(1.,.84,.6)*4.5+
+    dusting*vec3(1.,.8,.55)*.9);
+  col+=uGlow*exp(-abs(y)*30.)*(.1+pow(s,8.)*1.1);
+  col+=uGlow*exp(-abs(y)*22.)*pow(s,30.)*.22;
+  col+=uSun*(pow(s,2400.)*12.+pow(s,320.)*1.2+pow(s,60.)*.1)*upper;
   if(uClouds>0.&&y<uCloudTop&&y>-.05){
     float az=atan(d.x,-d.z);
-    vec2 uv=vec2(az*uCloudScale+uTime*.006,y*uCloudScale*3.2);
-    float top=smoothstep(uCloudTop,uCloudTop*.05,y);
-    float cover=cloudD(uv)-.62+top*.42;
-    float c=smoothstep(0.,.2,cover);
+    vec2 uv=vec2(az*uCloudScale+uTime*.006,y*uCloudScale*4.2);
+    float top01=clamp(y/uCloudTop,0.,1.);
+    vec2 c0=clouds(uv,top01);
+    float c=smoothstep(0.,.05,c0.x);
     if(c>0.){
-      vec2 sunUv=vec2(atan(uSunDir.x,-uSunDir.z)*uCloudScale,uSunDir.y*uCloudScale*3.2);
+      vec2 sunUv=vec2(atan(uSunDir.x,-uSunDir.z)*uCloudScale,uSunDir.y*uCloudScale*4.2);
       vec2 toSun=normalize(sunUv-uv+1e-3);
-      float lit=clamp((cover-(cloudD(uv+toSun*.22)-.62+top*.42))*2.8,0.,1.);
-      float near=.05+pow(s,4.)*1.15;
-      vec3 cc=mix(uCloudShade,uCloudLit,lit*near);
-      cc+=uCloudLit*pow(s,20.)*.5;
+      float lit=clamp((c0.x-clouds(uv+toSun*.075,top01).x)*7.,0.,1.);
+      float near=(.025+pow(s,8.)*1.1)*pow(1.-top01,1.2);
+      vec3 cc=uCloudShade*(.5+c0.y);
+      cc+=uCloudLit*pow(lit,1.7)*near*1.9;
+      cc+=uCloudLit*exp(-y*34.)*(.05+pow(s,5.)*.3);
+      cc+=uCloudLit*pow(s,60.)*.22;
       col=mix(col,cc,c*uClouds);
     }
   }
@@ -748,71 +786,112 @@ export function Planet({
 
 /* ---------------------------------- People ---------------------------------- */
 
-type Outline = [number, number][];
+type Point = [number, number, number];
 
-function mirrored(right: Outline): Outline {
-  const left = [...right].reverse().map(([x, y]): [number, number] => [-x, y]);
-  return [...right, ...left];
+function ellipsoid(center: Point, radius: Point) {
+  const part = new THREE.SphereGeometry(1, 20, 14);
+  part.scale(...radius);
+  part.translate(...center);
+  return part;
 }
 
-const LEGS: Outline = [
-  [0.015, 0.86], [0.035, 0.5], [0.04, 0.1], [0.035, 0.0], [0.16, 0.0], [0.15, 0.05],
-  [0.125, 0.1], [0.14, 0.48], [0.17, 0.82],
-];
-const ARM: Outline = [
-  [0.205, 1.1], [0.225, 0.86], [0.235, 0.78], [0.275, 0.8], [0.275, 1.0], [0.285, 1.25],
-  [0.27, 1.42], [0.19, 1.5], [0.1, 1.53], [0.075, 1.58],
-];
-
-const OUTLINES: Record<string, Outline> = {
-  // Hooded explorer seen from behind, feet at y=0, 1.84 tall.
-  hood: mirrored([
-    ...LEGS, [0.18, 0.92], [0.165, 1.08], [0.175, 1.28], ...ARM,
-    [0.105, 1.66], [0.105, 1.75], [0.06, 1.82], [0.0, 1.84],
-  ]),
-  // Long coat, flaring out at the knees over the legs.
-  coat: mirrored([
-    [0.02, 0.5], [0.04, 0.1], [0.035, 0.0], [0.15, 0.0], [0.13, 0.08], [0.13, 0.42],
-    [0.26, 0.46], [0.22, 0.9], [0.17, 1.1], [0.175, 1.28], ...ARM,
-    [0.1, 1.66], [0.1, 1.75], [0.055, 1.82], [0.0, 1.84],
-  ]),
-  // Bare head with tousled hair, jacket.
-  casual: mirrored([
-    ...LEGS, [0.18, 0.92], [0.17, 1.06], [0.175, 1.28], ...ARM,
-    [0.085, 1.62], [0.11, 1.68], [0.115, 1.76], [0.08, 1.83], [0.03, 1.865], [0.0, 1.87],
-  ]),
-};
-
-// Seated in profile with one arm reaching out to the right.
-const SEATED: Outline = [
-  [-0.38, 0.0], [0.52, 0.0], [0.62, 0.05], [0.58, 0.12], [0.34, 0.14], [0.36, 0.46],
-  [0.3, 0.56], [0.0, 0.52], [0.02, 0.62], [0.12, 0.84], [0.34, 0.92], [0.62, 0.98], [0.68, 1.03],
-  [0.62, 1.05], [0.32, 1.02], [0.12, 1.02], [0.08, 1.08], [0.13, 1.17], [0.1, 1.28],
-  [0.0, 1.32], [-0.13, 1.27], [-0.15, 1.13], [-0.09, 1.05], [-0.27, 0.98], [-0.36, 0.72], [-0.38, 0.44],
-];
-
-function figureGeometry(outline: Outline) {
-  const curve = new THREE.CatmullRomCurve3(
-    outline.map(([x, y]) => new THREE.Vector3(x, y, 0)),
-    true,
-    "centripetal",
+/** Tapered limb with rounded ends. */
+function limb(from: Point, to: Point, r0: number, r1: number) {
+  const a = new THREE.Vector3(...from);
+  const b = new THREE.Vector3(...to);
+  const shaft = new THREE.CylinderGeometry(r1, r0, a.distanceTo(b), 14, 1, true);
+  shaft.applyQuaternion(
+    new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), b.clone().sub(a).normalize()),
   );
-  const shape = new THREE.Shape(
-    curve.getPoints(outline.length * 5).map((p) => new THREE.Vector2(p.x, p.y)),
-  );
-  const geometry = new THREE.ExtrudeGeometry(shape, {
-    depth: 0.1,
-    bevelEnabled: true,
-    bevelThickness: 0.05,
-    bevelSize: 0.012,
-    bevelSegments: 2,
-    curveSegments: 4,
-  });
-  geometry.translate(0, 0, -0.05);
-  return geometry;
+  const middle = a.clone().add(b).multiplyScalar(0.5);
+  shaft.translate(middle.x, middle.y, middle.z);
+  return [shaft, ellipsoid(from, [r0, r0, r0]), ellipsoid(to, [r1, r1, r1])];
+}
+
+function standingBody(kind: "hood" | "coat" | "casual") {
+  const parts: THREE.BufferGeometry[] = [];
+  for (const side of [-1, 1]) {
+    // Trousers and a boot, close together so the legs read as one form from a distance.
+    parts.push(...limb([side * 0.09, 0.95, 0], [side * 0.098, 0.5, 0], 0.112, 0.082));
+    parts.push(...limb([side * 0.098, 0.5, 0], [side * 0.102, 0.11, 0.005], 0.082, 0.066));
+    parts.push(ellipsoid([side * 0.104, 0.06, -0.035], [0.075, 0.062, 0.13]));
+    // Jacket sleeve, sitting against the body, and a hand.
+    parts.push(...limb([side * 0.222, 1.42, 0], [side * 0.248, 1.12, 0.01], 0.088, 0.072));
+    parts.push(...limb([side * 0.248, 1.12, 0.01], [side * 0.25, 0.86, -0.01], 0.072, 0.052));
+    parts.push(ellipsoid([side * 0.25, 0.8, -0.012], [0.042, 0.062, 0.034]));
+  }
+  // Jacket body: broad at the shoulders, straight down to a hem over the hips.
+  parts.push(ellipsoid([0, 0.93, 0], [0.205, 0.13, 0.135]));
+  parts.push(ellipsoid([0, 1.12, 0], [0.215, 0.24, 0.145]));
+  parts.push(ellipsoid([0, 1.3, 0], [0.24, 0.2, 0.155]));
+  parts.push(ellipsoid([0, 1.435, 0], [0.272, 0.085, 0.125]));
+  parts.push(...limb([0, 1.46, 0], [0, 1.54, 0], 0.07, 0.06));
+  if (kind === "casual") {
+    parts.push(ellipsoid([0, 1.635, 0], [0.09, 0.106, 0.098]));
+    // Tousled hair.
+    for (const [x, y, z, r] of [
+      [0, 1.7, 0.012, 0.09], [0.058, 1.685, 0.03, 0.06], [-0.058, 1.69, 0.03, 0.06],
+      [0.03, 1.73, -0.03, 0.052], [-0.03, 1.735, 0.03, 0.048], [0.07, 1.64, 0.02, 0.043], [-0.07, 1.645, 0.02, 0.043],
+    ]) {
+      parts.push(ellipsoid([x, y, z], [r, r, r]));
+    }
+    // Upturned collar.
+    parts.push(ellipsoid([0, 1.52, 0.015], [0.115, 0.05, 0.1]));
+  } else {
+    // Hood over the head, gathered onto the shoulders.
+    parts.push(ellipsoid([0, 1.625, 0.012], [0.112, 0.125, 0.122]));
+    parts.push(ellipsoid([0, 1.515, 0.045], [0.15, 0.07, 0.115]));
+  }
+  if (kind === "coat") {
+    const skirt = new THREE.CylinderGeometry(0.215, 0.33, 0.68, 22, 1, true);
+    skirt.scale(1, 1, 0.7);
+    skirt.translate(0, 0.66, 0.005);
+    parts.push(skirt);
+  }
+  return parts;
+}
+
+function backpack() {
+  const parts = [
+    ellipsoid([0, 1.2, 0.165], [0.165, 0.235, 0.09]),
+    ellipsoid([0, 1.385, 0.15], [0.12, 0.045, 0.065]),
+  ];
+  const merged = mergeGeometries(parts, false)!;
+  parts.forEach((part) => part.dispose());
+  return merged;
+}
+
+/** Sitting in profile, facing +x, one arm reaching out toward the stream of light. */
+function seatedBody() {
+  const parts: THREE.BufferGeometry[] = [];
+  for (const side of [-1, 1]) {
+    parts.push(...limb([0, 0.16, side * 0.09], [0.38, 0.44, side * 0.12], 0.09, 0.066));
+    parts.push(...limb([0.38, 0.44, side * 0.12], [0.5, 0.07, side * 0.13], 0.066, 0.05));
+    parts.push(ellipsoid([0.55, 0.05, side * 0.13], [0.115, 0.05, 0.055]));
+  }
+  parts.push(ellipsoid([-0.02, 0.2, 0], [0.13, 0.13, 0.17]));
+  parts.push(ellipsoid([-0.05, 0.42, 0], [0.12, 0.2, 0.165]));
+  parts.push(ellipsoid([-0.05, 0.62, 0], [0.13, 0.19, 0.19]));
+  parts.push(ellipsoid([-0.11, 0.56, 0], [0.09, 0.2, 0.15]));
+  parts.push(ellipsoid([-0.04, 0.78, 0], [0.095, 0.07, 0.215]));
+  parts.push(...limb([-0.03, 0.82, 0], [0.0, 0.9, 0], 0.05, 0.048));
+  parts.push(ellipsoid([0.02, 0.99, 0], [0.105, 0.112, 0.092]));
+  for (const [x, y, z, r] of [
+    [-0.01, 1.06, 0, 0.09], [-0.06, 1.03, 0.03, 0.06], [0.04, 1.08, -0.03, 0.055], [-0.05, 1.05, -0.04, 0.05],
+  ]) {
+    parts.push(ellipsoid([x, y, z], [r, r, r]));
+  }
+  // Reaching arm, and the other resting on a knee.
+  parts.push(...limb([-0.02, 0.78, -0.17], [0.3, 0.86, -0.15], 0.06, 0.05));
+  parts.push(...limb([0.3, 0.86, -0.15], [0.62, 0.99, -0.12], 0.05, 0.036));
+  parts.push(ellipsoid([0.67, 1.015, -0.11], [0.05, 0.03, 0.03]));
+  parts.push(...limb([-0.02, 0.76, 0.17], [0.16, 0.52, 0.17], 0.058, 0.048));
+  parts.push(...limb([0.16, 0.52, 0.17], [0.36, 0.5, 0.14], 0.048, 0.036));
+  return parts;
 }
 
 export function Figure({
+  world,
   kind = "hood",
   position,
   rotationY = 0,
@@ -820,6 +899,7 @@ export function Figure({
   rim = 1,
   pack = true,
 }: {
+  world: World;
   kind?: "hood" | "coat" | "casual" | "seated";
   position: [number, number, number];
   rotationY?: number;
@@ -827,25 +907,33 @@ export function Figure({
   rim?: number;
   pack?: boolean;
 }) {
-  const { body, packGeometry, black, edge } = useMemo(() => {
-    const packGeometry = new THREE.SphereGeometry(1, 18, 14);
-    packGeometry.scale(0.2, 0.28, 0.1);
-    packGeometry.translate(0, 1.2, 0.15);
+  const { body, gear, material, edge } = useMemo(() => {
+    const parts = kind === "seated" ? seatedBody() : standingBody(kind);
+    const merged = mergeGeometries(parts, false)!;
+    parts.forEach((part) => part.dispose());
     return {
-      body: figureGeometry(kind === "seated" ? SEATED : OUTLINES[kind]),
-      packGeometry,
-      black: new THREE.MeshBasicMaterial({ color: "#020201" }),
+      body: merged,
+      gear: pack && kind !== "seated" ? backpack() : null,
+      material: surface(world, {
+        color: "#17120d",
+        detail: 22,
+        bump: 0.3,
+        shine: 14,
+        spec: 0.03,
+        rim: 0.12,
+        rimPower: 6,
+      }),
       edge: new THREE.MeshBasicMaterial({
-        color: new THREE.Color("#ffb35e").multiplyScalar(0.55 * rim),
+        color: new THREE.Color("#ffb564").multiplyScalar(0.62 * rim),
         side: THREE.BackSide,
       }),
     };
-  }, [kind, rim]);
+  }, [world, kind, rim, pack]);
   return (
     <group position={position} rotation={[0, rotationY, 0]} scale={scale}>
-      <mesh geometry={body} material={black} />
-      <mesh geometry={body} material={edge} scale={[1.016, 1.005, 1]} position={[0, 0.002, -0.015]} />
-      {pack && kind !== "seated" && <mesh geometry={packGeometry} material={black} />}
+      <mesh geometry={body} material={material} />
+      {gear && <mesh geometry={gear} material={material} />}
+      <mesh geometry={body} material={edge} scale={[1.018, 1.005, 1.018]} />
     </group>
   );
 }
@@ -952,7 +1040,15 @@ export function HoloPanel({
     : {};
 
   return (
-    <mesh ref={ref} position={position} rotation={rotation} material={material} renderOrder={4} {...handlers}>
+    <mesh
+      ref={ref}
+      position={position}
+      rotation={rotation}
+      material={material}
+      renderOrder={4}
+      raycast={onSelect ? raycastVisible : () => null}
+      {...handlers}
+    >
       <planeGeometry args={[1, 1]} />
     </mesh>
   );

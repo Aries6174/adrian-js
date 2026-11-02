@@ -85,6 +85,10 @@ export default function HomePage() {
         <span className="rule mt-3" />
       </aside>
 
+      <div
+        aria-hidden
+        className="absolute inset-x-0 bottom-0 hidden h-[22rem] bg-gradient-to-t from-ink via-ink/70 to-transparent lg:block"
+      />
       <div className="mt-10 lg:absolute lg:inset-x-[3.6rem] lg:bottom-[1.3rem] lg:mt-0">
         <section aria-labelledby="featured" className="rise" style={stagger(5)}>
           <div className="mb-2.5 flex flex-wrap items-center gap-x-5 gap-y-1">

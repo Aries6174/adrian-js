@@ -76,14 +76,13 @@ function Hill({ world }: { world: World }) {
     return {
       geometry,
       material: surface(world, {
-        color: "#100d09",
-        accent: "#14160b",
-        flat: true,
-        detail: 1.5,
-        bump: 0.6,
-        shine: 30,
-        spec: 0.08,
-        rim: 0.12,
+        color: "#0e0b08",
+        accent: "#121208",
+        detail: 2.4,
+        bump: 0.7,
+        shine: 20,
+        spec: 0.02,
+        rim: 0.04,
       }),
     };
   }, [world]);
@@ -109,14 +108,14 @@ const GRASS_FRAG = /* glsl */ `
 varying float vH;
 varying vec3 vW;
 void main(){
-  vec3 col=mix(vec3(.004,.004,.003),vec3(.05,.042,.018),vH);
-  col+=vec3(1.,.55,.18)*pow(vH,3.)*.12;
+  vec3 col=mix(vec3(.003,.003,.002),vec3(.035,.028,.012),vH);
+  col+=vec3(1.,.58,.2)*pow(vH,4.)*.16;
   gl_FragColor=vec4(col,1.);
 }`;
 
 function Grass() {
   const ref = useRef<THREE.InstancedMesh>(null);
-  const count = 14000;
+  const count = 20000;
   const { geometry, material, transforms } = useMemo(() => {
     const geometry = new THREE.BufferGeometry();
     geometry.setAttribute(
@@ -140,8 +139,8 @@ function Grass() {
       const near = smoothstep(4, 9, z);
       object.position.set(x, terrainHeight(x, z) - 0.03, z);
       object.rotation.set((rand() - 0.5) * 0.7, rand() * Math.PI, (rand() - 0.5) * 0.7);
-      const height = (0.14 + rand() * rand() * 0.42) * (0.8 + near * 0.5);
-      object.scale.set(0.8 + near * 0.5, height, 1);
+      const height = (0.1 + rand() * rand() * 0.3) * (0.8 + near * 0.4);
+      object.scale.set(0.55 + near * 0.3, height, 1);
       object.updateMatrix();
       transforms.push(object.matrix.clone());
     }
@@ -170,8 +169,8 @@ function Flowers() {
     const geometry = new THREE.BufferGeometry();
     geometry.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
     const material = new THREE.PointsMaterial({
-      color: new THREE.Color(1.4, 1.3, 1.1),
-      size: 0.075,
+      color: new THREE.Color(1.1, 0.95, 0.72),
+      size: 0.022,
       sizeAttenuation: true,
     });
     return { geometry, material };
@@ -227,7 +226,7 @@ function buildTree() {
   };
 
   const base = new THREE.Vector3(-5.2, 0.2, 2.2);
-  const crown = new THREE.Vector3(-5, 5.2, 2);
+  const crown = new THREE.Vector3(-5, 4.5, 2);
   parts.push(cylinderBetween(base, crown, 1.15, 0.72));
   // Exposed roots spreading from the base of the trunk.
   for (let i = 0; i < 9; i++) {
@@ -282,7 +281,7 @@ void main(){
 
 function Tree({ world }: { world: World }) {
   const leaves = useRef<THREE.InstancedMesh>(null);
-  const leafCount = 11000;
+  const leafCount = 30000;
   const { wood, bark, leafGeometry, leafMaterial, setup } = useMemo(() => {
     const { wood, tips } = buildTree();
     const leafGeometry = new THREE.PlaneGeometry(1, 1);
@@ -300,20 +299,21 @@ function Tree({ world }: { world: World }) {
       for (let i = 0; i < leafCount; i++) {
         const tip = tips[Math.floor(rand() * tips.length)];
         object.position.set(
-          tip.x + (rand() - 0.5) * 1.15,
-          tip.y + (rand() - 0.5) * 0.9,
-          tip.z + (rand() - 0.5) * 1.15,
+          tip.x + (rand() - 0.5) * 1.5,
+          tip.y + (rand() - 0.72) * 1.7,
+          tip.z + (rand() - 0.5) * 1.5,
         );
         object.rotation.set(rand() * 6.28, rand() * 6.28, rand() * 6.28);
-        object.scale.setScalar(0.16 + rand() * 0.19);
+        object.scale.setScalar(0.11 + rand() * 0.17);
         object.updateMatrix();
         mesh.setMatrixAt(i, object.matrix);
         // Lit from the sunset side and from the lanterns; dark on top and behind.
-        const low = smoothstep(11, 5, object.position.y);
+        const low = smoothstep(10, 4, object.position.y);
         const glowNear = smoothstep(6, 0.5, object.position.distanceTo(lantern));
         const sunset = smoothstep(-8, 3, object.position.x) * low;
-        const heat = 0.03 + sunset * 0.3 * rand() + glowNear * 0.9 + (rand() < 0.1 ? 0.28 : 0);
-        color.setRGB(heat * 1.25, heat * 0.56, heat * 0.13);
+        const lit = rand() < 0.14 ? 0.16 + rand() * 0.34 : 0;
+        const heat = 0.04 + Math.pow(rand(), 2) * 0.14 + sunset * 0.22 * rand() + glowNear * 0.65 + lit;
+        color.setRGB(heat * 1.2, heat * 0.5, heat * 0.09);
         mesh.setColorAt(i, color);
       }
       mesh.instanceMatrix.needsUpdate = true;
@@ -352,7 +352,7 @@ function Tree({ world }: { world: World }) {
     });
     return {
       strips,
-      strip: glow("#ffb45e", 3),
+      strip: glow("#ffa64e", 1.9),
       cables: mergeGeometries(hanging, false)!,
       cableMaterial: new THREE.MeshBasicMaterial({ color: "#050403" }),
     };
@@ -361,9 +361,7 @@ function Tree({ world }: { world: World }) {
   return (
     <group>
       <mesh geometry={wood} material={bark} />
-      <instancedMesh ref={leaves} args={[leafGeometry, leafMaterial, leafCount]} frustumCulled={false}>
-        <instancedBufferAttribute attach="instanceColor" args={[new Float32Array(leafCount * 3), 3]} />
-      </instancedMesh>
+      <instancedMesh ref={leaves} args={[leafGeometry, leafMaterial, leafCount]} frustumCulled={false} />
       <Boxes items={strips} material={strip} />
       <mesh geometry={cables} material={cableMaterial} />
     </group>
@@ -398,9 +396,9 @@ function NebulaStream() {
           float fine=pow(1.-abs(fbm2(q*3.+warp*2.)*2.-1.),6.);
           float env=smoothstep(0.,.02,along)*smoothstep(1.,.45,along)*smoothstep(.5,.2,abs(y));
           vec3 hot=vec3(1.,.73,.33);
-          vec3 cold=vec3(.3,.56,1.);
+          vec3 cold=vec3(.22,.42,.85);
           vec3 c=mix(hot,cold,smoothstep(.08,.5,along+(warp-.5)*.3));
-          vec3 result=c*(filament*.5+fine*filament*.55+pow(smoothstep(.5,.0,abs(y)),2.)*.012)*env;
+          vec3 result=c*(filament*.26+fine*filament*.36+pow(smoothstep(.5,.0,abs(y)),2.)*.012)*env;
           gl_FragColor=vec4(result,1.);
         }`,
       uniforms: { ...noiseUniforms, uTime },
@@ -448,9 +446,9 @@ function NebulaStream() {
     return {
       material,
       geometries: [
-        makeStrip(path(0), 7, 0),
-        makeStrip(path(0.45), 6, 0.5),
-        makeStrip(path(-0.4), 6.5, -0.45),
+        makeStrip(path(0), 3.4, 0),
+        makeStrip(path(0.45), 2.8, 0.5),
+        makeStrip(path(-0.4), 3.1, -0.45),
       ],
     };
   }, []);
@@ -596,12 +594,14 @@ export function AboutScene({ visible }: { visible: boolean }) {
       <Grass />
       <Flowers />
       <Figure
+        world={world}
         kind="hood"
         position={[-2.75, terrainHeight(-2.75, 4.7) - 0.03, 4.7]}
         rotationY={0.12}
         rim={1.5}
       />
       <Figure
+        world={world}
         kind="seated"
         position={[-1.88, terrainHeight(-1.88, 4.2) + 0.03, 4.2]}
         rotationY={-0.1}

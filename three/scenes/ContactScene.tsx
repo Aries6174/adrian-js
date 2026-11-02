@@ -83,7 +83,7 @@ function Dish({ world, position }: { world: World; position: [number, number, nu
     bowlMaterial.side = THREE.DoubleSide;
     return {
       bowl: bowlMaterial,
-      frame: surface(world, { color: "#1a130b", shine: 50, spec: 1.1, rim: 0.9 }),
+      frame: surface(world, { color: "#221910", shine: 50, spec: 0.9, rim: 0.6, panel: 0.8 }),
       trace: glow("#ffba69", 1.8),
       bowlGeometry: new THREE.LatheGeometry(points, 72),
       ribs,
@@ -145,7 +145,7 @@ function Tower({ world }: { world: World }) {
       }
     });
     return {
-      dark: surface(world, { color: "#17110a", shine: 40, spec: 0.8, rim: 0.7 }),
+      dark: surface(world, { color: "#1f1810", shine: 40, spec: 0.8, rim: 0.5, panel: 0.9 }),
       trim: glow("#ffb45e", 3.6),
       windowGlow: glow("#ffb45e", 2),
       decks,
@@ -198,8 +198,8 @@ function Interior({ world }: { world: World }) {
       softStrips.push([-12 + i * 2.2, 15.42, -6.2, 1.4, 0.05, 0.06, 0]);
     }
     return {
-      dark: surface(world, { color: "#14100a", shine: 60, spec: 1.1, rim: 0.55 }),
-      strip: glow("#ffb45e", 2.6),
+      dark: surface(world, { color: "#1b1610", shine: 60, spec: 0.9, rim: 0.4, panel: 1.1 }),
+      strip: glow("#ffa64e", 1.8),
       soft: glow("#ffb45e", 1),
       frames,
       strips,
@@ -243,7 +243,7 @@ export function ContactScene({ visible }: { visible: boolean }) {
       world,
       basis: diskBasis(new THREE.Vector3(...EYE), new THREE.Vector3(...HOLE), TILT, ROLL),
       map: worldMapTexture(),
-      consoleBody: surface(world, { color: "#1a130b", shine: 40, spec: 0.9, rim: 0.8 }),
+      consoleBody: surface(world, { color: "#221910", shine: 40, spec: 0.9, rim: 0.5, panel: 0.45 }),
       consoleTrim: glow("#ffb45e", 4),
     };
   }, []);
@@ -262,7 +262,7 @@ export function ContactScene({ visible }: { visible: boolean }) {
         position={HOLE}
         quaternion={basis}
         count={7000}
-        rMin={7.2}
+        rMin={13.2}
         rMax={33}
         thickness={4}
         arms={2}
@@ -280,7 +280,7 @@ export function ContactScene({ visible }: { visible: boolean }) {
         rMin={10}
         rMax={30}
         thickness={8}
-        size={0.8}
+        size={0.5}
         speed={0.05}
       />
 
@@ -311,7 +311,7 @@ export function ContactScene({ visible }: { visible: boolean }) {
         />
       </group>
 
-      <Figure kind="casual" position={[-1.75, 0, 8.1]} scale={1.03} rim={1.8} />
+      <Figure world={world} kind="casual" position={[-1.75, 0, 8.1]} scale={1.03} rim={1.8} />
     </group>
   );
 }

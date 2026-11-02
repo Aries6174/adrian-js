@@ -100,7 +100,7 @@ export function HallScene({ visible }: { visible: boolean }) {
   const { world, basis, textures, shelf } = useMemo(() => {
     const world = makeWorld({
       lights: [
-        { pos: HOLE, color: "#ffb25e", power: 5, falloff: 0.022 },
+        { pos: HOLE, color: "#ffb25e", power: 3.2, falloff: 0.022 },
         { pos: [0, 2.6, 4], color: "#ffa951", power: 0.5, falloff: 0.04 },
         { pos: [-18, 7, 2], color: "#ff9f48", power: 1.1, falloff: 0.05 },
         { pos: [18, 7, 2], color: "#ff9f48", power: 1.1, falloff: 0.05 },
@@ -140,8 +140,8 @@ export function HallScene({ visible }: { visible: boolean }) {
         position={HOLE}
         quaternion={basis}
         count={5200}
-        rMin={2.9}
-        rMax={12.5}
+        rMin={7.6}
+        rMax={13.5}
         thickness={1.4}
         size={1.25}
         speed={1.1}
@@ -156,7 +156,7 @@ export function HallScene({ visible }: { visible: boolean }) {
         rMin={3.8}
         rMax={11.5}
         thickness={2.5}
-        size={0.42}
+        size={0.27}
         speed={0.09}
       />
       {[8.8, 11.3, 14].map((radius) => (
@@ -197,7 +197,7 @@ export function HallScene({ visible }: { visible: boolean }) {
         </group>
       ))}
 
-      <Figure kind="coat" position={[0, 0, 10]} rim={1.1} />
+      <Figure world={world} kind="coat" position={[0, 0, 10]} rim={1.1} />
     </group>
   );
 }
