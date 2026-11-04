@@ -419,7 +419,7 @@ export function IntroScene({ visible }: { visible: boolean }) {
         arms={3}
         twist={3}
         size={9}
-        speed={8}
+        speed={60}
         intensity={0.85}
       />
       <Asteroids
@@ -429,9 +429,10 @@ export function IntroScene({ visible }: { visible: boolean }) {
         quaternion={basis}
         count={130}
         rMin={85}
-        rMax={185}
+        rMax={205}
         thickness={12}
         size={2.5}
+        speed={0.07}
       />
       <Water />
       <Foreground world={world} />

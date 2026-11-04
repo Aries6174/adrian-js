@@ -24,7 +24,6 @@ import { Boxes } from "./architecture";
 
 const EYE: [number, number, number] = [0, 2.75, 13];
 const NEBULA_HEART: [number, number, number] = [10, 34, -90];
-const HAND = new THREE.Vector3(-1.2, 3.32, 4.2);
 
 export const ABOUT_POSE: Pose = {
   position: EYE,
@@ -369,7 +368,39 @@ function Tree({ world }: { world: World }) {
   );
 }
 
-/** Curling current of light rising from the seated figure's hand. */
+/** Where the standing figure holds out its hand. */
+function palm() {
+  return new THREE.Vector3(-2.03, terrainHeight(-2.75, 4.7) + 1.37, 4.34);
+}
+
+/** A small light resting in the open hand, where the current begins. */
+function PalmLight() {
+  const position = useMemo(() => palm(), []);
+  const halo = useMemo(
+    () =>
+      new THREE.MeshBasicMaterial({
+        color: new THREE.Color("#ffc27a"),
+        transparent: true,
+        opacity: 0.22,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending,
+      }),
+    [],
+  );
+  const core = useMemo(() => glow("#ffe2b4", 2.4), []);
+  return (
+    <group position={position}>
+      <mesh material={core}>
+        <sphereGeometry args={[0.035, 12, 8]} />
+      </mesh>
+      <mesh material={halo}>
+        <sphereGeometry args={[0.11, 16, 12]} />
+      </mesh>
+    </group>
+  );
+}
+
+/** Curling current of light rising from the standing figure's open hand. */
 function NebulaStream() {
   const { geometries, material } = useMemo(() => {
     const material = new THREE.ShaderMaterial({
@@ -435,7 +466,7 @@ function NebulaStream() {
     };
 
     const path = (k: number) => [
-      HAND.clone(),
+      palm(),
       new THREE.Vector3(0.3, 3.9 + k * 0.25, 2),
       new THREE.Vector3(1.2 + k, 5.1, -4),
       new THREE.Vector3(-0.8 + k * 2, 7.6 + k, -13),
@@ -593,6 +624,7 @@ export function AboutScene({ visible }: { visible: boolean }) {
       <Hill world={world} />
       <Tree world={world} />
       <NebulaStream />
+      <PalmLight />
       <Grass />
       <Flowers />
       <Figure
@@ -600,13 +632,6 @@ export function AboutScene({ visible }: { visible: boolean }) {
         kind="standing"
         position={[-2.75, terrainHeight(-2.75, 4.7) - 0.03, 4.7]}
         rotationY={0.12}
-        rim={1.5}
-      />
-      <Figure
-        world={world}
-        kind="seated"
-        position={[-1.72, terrainHeight(-1.72, 4.2) + 0.03, 4.2]}
-        rotationY={-Math.PI / 2 - 0.1}
         rim={1.5}
       />
       </Staged>

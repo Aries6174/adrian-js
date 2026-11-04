@@ -156,11 +156,10 @@ function ProjectPanel({
       projectPanelTexture(
         String(number).padStart(2, "0"),
         project.title,
-        project.tags,
         project.image,
         number * 7 + 3,
       ),
-    [number, project.title, project.tags, project.image],
+    [number, project.title, project.image],
   );
 
   useEffect(() => () => texture.dispose(), [texture]);

@@ -21,6 +21,7 @@ import {
   smoothstep,
   surface,
   uTime,
+  uPixels,
   type World,
 } from "./shared";
 
@@ -76,7 +77,7 @@ vec4 disk(vec3 hit,vec3 ray){
   float r=length(hit.xz);
   if(r<RIN||r>ROUT) return vec4(0.);
   float a=atan(hit.z,hit.x);
-  float phi=a+uTime*1.9/pow(r,1.5);
+  float phi=a-uTime*1.9/pow(r,1.5);
   float sp=phi+log(r)*.9;
   vec2 dir=vec2(cos(sp),sin(sp));
   float big=fbm3(vec3(dir*1.2,r*.55));
@@ -264,18 +265,27 @@ attribute vec3 aTint;
 uniform float uTime;
 uniform float uScale;
 uniform float uSpeed;
+uniform float uSide;
+uniform float uPixels;
 varying vec3 vTint;
-varying float vFade;
 void main(){
   float r=aOrbit.x;
   float a=aOrbit.y+uTime*uSpeed/pow(max(r,.2),1.5);
   vec3 p=vec3(cos(a)*r,aOrbit.z,sin(a)*r);
   vec4 mv=modelViewMatrix*vec4(p,1.);
+  // This pass only draws the half of the orbit on its own side of the center.
+  if((mv.z-modelViewMatrix[3].z)*uSide<0.){
+    gl_Position=vec4(2.,2.,2.,1.);
+    gl_PointSize=0.;
+    vTint=vec3(0.);
+    return;
+  }
   gl_Position=projectionMatrix*mv;
   float tw=.6+.4*sin(uTime*(1.+aOrbit.w*2.)+aOrbit.w*40.);
-  vTint=aTint*tw;
-  vFade=1.;
-  gl_PointSize=clamp(aSize*uScale/max(-mv.z,.1),1.,5.5);
+  // Dust moving toward the viewer looks brighter, as the glowing disk does.
+  float approach=(modelViewMatrix*vec4(-sin(a),0.,cos(a),0.)).z;
+  vTint=aTint*tw*(1.+.5*approach);
+  gl_PointSize=clamp(aSize*uScale*uPixels/max(-mv.z,.1),1.,5.5*uPixels);
 }`;
 
 const DUST_FRAG = /* glsl */ `
@@ -287,7 +297,11 @@ void main(){
   gl_FragColor=vec4(vTint*s,1.);
 }`;
 
-/** Gold particles orbiting a center, with optional spiral arms. */
+/**
+ * Gold particles orbiting a center, with optional spiral arms.
+ * Drawn in two halves: the far half before the black hole, so it passes behind it,
+ * and the near half after, so it passes in front.
+ */
 export function DustDisk({
   position,
   quaternion,
@@ -317,7 +331,7 @@ export function DustDisk({
   seed?: number;
   blue?: number;
 }) {
-  const { geometry, material } = useMemo(() => {
+  const { geometry, near, far } = useMemo(() => {
     const rand = seeded(seed);
     const orbit = new Float32Array(count * 4);
     const sizes = new Float32Array(count);
@@ -352,26 +366,23 @@ export function DustDisk({
     geometry.setAttribute("aOrbit", new THREE.BufferAttribute(orbit, 4));
     geometry.setAttribute("aSize", new THREE.BufferAttribute(sizes, 1));
     geometry.setAttribute("aTint", new THREE.BufferAttribute(tints, 3));
-    const material = new THREE.ShaderMaterial({
-      vertexShader: DUST_VERT,
-      fragmentShader: DUST_FRAG,
-      transparent: true,
-      depthWrite: false,
-      blending: THREE.AdditiveBlending,
-      uniforms: { uTime, uScale: { value: 40 }, uSpeed: { value: speed } },
-    });
-    return { geometry, material };
+    const half = (side: number) =>
+      new THREE.ShaderMaterial({
+        vertexShader: DUST_VERT,
+        fragmentShader: DUST_FRAG,
+        transparent: true,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending,
+        uniforms: { uTime, uPixels, uScale: { value: 40 }, uSpeed: { value: speed }, uSide: { value: side } },
+      });
+    return { geometry, near: half(1), far: half(-1) };
   }, [count, rMin, rMax, thickness, arms, twist, size, speed, intensity, seed, blue]);
 
   return (
-    <points
-      geometry={geometry}
-      material={material}
-      position={position}
-      quaternion={quaternion}
-      frustumCulled={false}
-      renderOrder={2}
-    />
+    <group position={position} quaternion={quaternion}>
+      <points geometry={geometry} material={far} frustumCulled={false} renderOrder={0} />
+      <points geometry={geometry} material={near} frustumCulled={false} renderOrder={2} />
+    </group>
   );
 }
 
@@ -963,7 +974,7 @@ export function Planet({
 
 /* ---------------------------------- People ---------------------------------- */
 
-export type FigureKind = "explorer" | "coat" | "casual" | "jacket" | "standing" | "seated";
+export type FigureKind = "explorer" | "coat" | "casual" | "jacket" | "standing";
 
 const figureRequests = new Map<FigureKind, Promise<THREE.BufferGeometry>>();
 const NO_GEOMETRY = new THREE.BufferGeometry();
@@ -1072,13 +1083,12 @@ export function Figure({
 
 const PANEL_FRAG = /* glsl */ `
 uniform sampler2D tMap;
-uniform float uHover,uDim,uTime,uFlicker,uFade;
+uniform float uHover,uDim,uFade;
 varying vec2 vUv;
 void main(){
-  vec4 t=texture2D(tMap,vUv);
-  float scan=.93+.07*sin(vUv.y*420.+uTime*2.);
-  float flick=1.-uFlicker*.05*(.5+.5*sin(uTime*11.+vUv.y*5.));
-  vec3 col=t.rgb*scan*flick*(1.25+uHover*.75);
+  // The negative bias picks a sharper mipmap level than the GPU would by default.
+  vec4 t=texture2D(tMap,vUv,-.7);
+  vec3 col=t.rgb*(1.+uHover*.45);
   vec2 e=min(vUv,1.-vUv);
   float edge=smoothstep(.024,.0,min(e.x,e.y*1.45));
   col+=vec3(1.,.66,.28)*edge*(.28+uHover*1.6);
@@ -1096,7 +1106,7 @@ export function HoloPanel({
   dim = 0,
   onSelect,
   onHover,
-  bob = 0.06,
+  bob = 0.02,
   phase = 0,
   fade,
 }: {
@@ -1132,8 +1142,6 @@ export function HoloPanel({
           tMap: { value: texture },
           uHover: { value: 0 },
           uDim: { value: 0 },
-          uTime,
-          uFlicker: { value: 1 },
           uFade: { value: 1 },
         },
       }),
@@ -1253,6 +1261,7 @@ export function GlowRing({
   power = 3,
   quaternion,
   arc = Math.PI * 2,
+  behindPanels = false,
 }: {
   radius: number;
   position?: [number, number, number];
@@ -1262,13 +1271,23 @@ export function GlowRing({
   power?: number;
   quaternion?: THREE.Quaternion;
   arc?: number;
+  /** Never drawn over a screen, even where the ring passes nearer to the viewer. */
+  behindPanels?: boolean;
 }) {
-  const material = useMemo(() => glow(color, power), [color, power]);
+  const material = useMemo(() => {
+    const material = glow(color, power);
+    if (behindPanels) {
+      material.transparent = true;
+      material.depthWrite = false;
+    }
+    return material;
+  }, [color, power, behindPanels]);
   return (
     <mesh
       position={position}
       {...(quaternion ? { quaternion } : { rotation })}
       material={material}
+      renderOrder={behindPanels ? 3 : 0}
     >
       <torusGeometry args={[radius, tube, 6, 180, arc]} />
     </mesh>

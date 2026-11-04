@@ -25,7 +25,7 @@ import { HallScene, HALL_POSE } from "./scenes/HallScene";
 import { IntroScene, INTRO_POSE } from "./scenes/IntroScene";
 import { WorldBuilt } from "./parts";
 import { ProjectsScene, PROJECTS_POSE } from "./scenes/ProjectsScene";
-import { bakes, compileFor, NOISE_GLSL, noiseUniforms, type Pose, uTime } from "./shared";
+import { bakes, compileFor, NOISE_GLSL, noiseUniforms, type Pose, uPixels, uTime } from "./shared";
 
 const POSES: Record<SceneId, Pose> = {
   intro: INTRO_POSE,
@@ -111,12 +111,16 @@ const GRADE = {
     uWarp: { value: 0 },
     uCenter: { value: warpCenter },
     uAspect: { value: 1.78 },
+    uTexel: { value: new THREE.Vector2(1 / 1600, 1 / 900) },
+    uSharpen: { value: 0.35 },
     uTime,
   },
   vertexShader: /* glsl */ `
     varying vec2 vUv;
     void main(){ vUv=uv; gl_Position=vec4(position.xy,0.,1.); }`,
   fragmentShader: /* glsl */ `
+    uniform vec2 uTexel;
+    uniform float uSharpen;
     uniform sampler2D tDiffuse;
     uniform sampler2D tPrevious;
     uniform float uFade;
@@ -136,10 +140,18 @@ const GRADE = {
       }
       return c/10.;
     }
+    // Pushes each pixel away from the average of its neighbours, which firms up soft edges.
+    // The limit stops bright text from growing dark outlines.
+    vec3 sharpened(sampler2D map){
+      vec3 c=texture2D(map,vUv).rgb;
+      vec3 around=(texture2D(map,vUv+vec2(uTexel.x,0.)).rgb+texture2D(map,vUv-vec2(uTexel.x,0.)).rgb
+        +texture2D(map,vUv+vec2(0.,uTexel.y)).rgb+texture2D(map,vUv-vec2(0.,uTexel.y)).rgb)*.25;
+      return max(c+clamp(c-around,-.2,.2)*uSharpen*2.,0.);
+    }
     void main(){
       vec2 d=vUv-uCenter;
       float pull=uWarp*.26;
-      vec3 col=uWarp>.002?smeared(tDiffuse,d,pull):texture2D(tDiffuse,vUv).rgb;
+      vec3 col=uWarp>.002?smeared(tDiffuse,d,pull):sharpened(tDiffuse);
       if(uFade>.002){
         col=mix(col,smeared(tPrevious,d,pull),uFade);
       }
@@ -217,7 +229,7 @@ function PostFX() {
     const composer = new EffectComposer(gl, target);
     composer.addPass(new RenderPass(scene, camera));
     composer.addPass(new ShaderPass(CLAMP));
-    const bloom = new UnrealBloomPass(new THREE.Vector2(4, 4), 0.11, 0.6, 1);
+    const bloom = new UnrealBloomPass(new THREE.Vector2(4, 4), 0.08, 0.6, 1);
     composer.addPass(bloom);
     const snapshot = new SavePass();
     composer.addPass(snapshot);
@@ -321,6 +333,9 @@ function PostFX() {
       composer.setPixelRatio(pixelRatio);
       composer.setSize(size.width, size.height);
       grade.uniforms.uAspect.value = size.width / size.height;
+      grade.uniforms.uTexel.value.set(1 / (size.width * pixelRatio), 1 / (size.height * pixelRatio));
+      grade.uniforms.uSharpen.value = low ? 0.7 : 0.35;
+      uPixels.value = pixelRatio / 0.85;
       // Resizing empties the saved frame, so refill it right away.
       r.tick = 7;
     }

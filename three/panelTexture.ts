@@ -10,6 +10,9 @@ function cssFont(variable: string, fallback: string) {
   return value || fallback;
 }
 
+/** Pixels per layout unit. Drawing large and letting mipmaps shrink it keeps edges clean. */
+const DENSITY = 1.5;
+
 /** Canvas texture that repaints once web fonts (and any images) have arrived. */
 function paintedTexture(
   width: number,
@@ -18,12 +21,14 @@ function paintedTexture(
   sources: string[] = [],
 ) {
   const canvas = document.createElement("canvas");
-  canvas.width = width;
-  canvas.height = height;
+  canvas.width = width * DENSITY;
+  canvas.height = height * DENSITY;
   const ctx = canvas.getContext("2d")!;
+  ctx.scale(DENSITY, DENSITY);
+  ctx.imageSmoothingQuality = "high";
   const texture = new THREE.CanvasTexture(canvas);
   texture.colorSpace = THREE.SRGBColorSpace;
-  texture.anisotropy = 8;
+  texture.anisotropy = 16;
   texture.generateMipmaps = true;
   texture.minFilter = THREE.LinearMipmapLinearFilter;
   const display = cssFont("--font-display", "sans-serif");
@@ -61,14 +66,14 @@ function tracked(
 }
 
 function frame(ctx: CanvasRenderingContext2D, w: number, h: number) {
-  ctx.fillStyle = "rgba(11,8,5,0.8)";
+  ctx.fillStyle = "#0b0805";
   ctx.fillRect(0, 0, w, h);
   ctx.strokeStyle = "rgba(255,196,110,0.95)";
-  ctx.lineWidth = 3;
-  ctx.strokeRect(2, 2, w - 4, h - 4);
+  ctx.lineWidth = 5;
+  ctx.strokeRect(3, 3, w - 6, h - 6);
 }
 
-/** Black mountain ranges under a gold-dusted sky. */
+/** Black mountain ranges under a warm sky. Bold shapes only, as these are shown small. */
 function ridges(
   ctx: CanvasRenderingContext2D,
   x: number,
@@ -85,103 +90,76 @@ function ridges(
   const sky = ctx.createLinearGradient(0, y, 0, y + h);
   sky.addColorStop(0, "#0d0a08");
   sky.addColorStop(0.55, "#2c1e11");
-  sky.addColorStop(0.78, "#c98a42");
-  sky.addColorStop(0.9, "#f4c684");
+  sky.addColorStop(0.8, "#a8712f");
+  sky.addColorStop(0.92, "#dca75f");
   ctx.fillStyle = sky;
   ctx.fillRect(x, y, w, h);
-  for (let i = 0; i < 260; i++) {
-    const size = Math.pow(rand(), 3) * 2.2 + 0.5;
-    ctx.fillStyle = `rgba(255,236,205,${0.2 + rand() * 0.8})`;
-    ctx.fillRect(x + rand() * w, y + rand() * h * 0.62, size, size);
-  }
-  // A moon with a lit limb.
-  const mx = x + w * (0.25 + rand() * 0.5);
-  const my = y + h * (0.22 + rand() * 0.16);
-  const mr = h * (0.09 + rand() * 0.08);
-  const halo = ctx.createRadialGradient(mx, my, mr * 0.7, mx, my, mr * 2.6);
-  halo.addColorStop(0, "rgba(255,206,140,0.34)");
-  halo.addColorStop(1, "rgba(255,206,140,0)");
-  ctx.fillStyle = halo;
-  ctx.fillRect(x, y, w, h);
-  ctx.fillStyle = "#0c0906";
-  ctx.beginPath();
-  ctx.arc(mx, my, mr, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.strokeStyle = "rgba(255,214,150,0.95)";
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  ctx.arc(mx, my, mr, -2.4, 0.5);
-  ctx.stroke();
   [
-    { base: 0.6, rough: 0.28, color: "#3a2a1a", edge: "rgba(255,190,110,0.28)" },
-    { base: 0.72, rough: 0.3, color: "#1d150e", edge: "rgba(255,190,110,0.5)" },
-    { base: 0.87, rough: 0.2, color: "#070504", edge: "rgba(255,190,110,0.8)" },
+    { base: 0.66, rough: 0.2, color: "#3a2a1a" },
+    { base: 0.76, rough: 0.2, color: "#1d150e" },
+    { base: 0.88, rough: 0.14, color: "#070504" },
   ].forEach((layer) => {
-    const top: [number, number][] = [];
     let level = layer.base;
-    for (let px = 0; px <= w + 8; px += 8) {
-      level += (rand() - 0.5) * 0.075;
-      level = Math.min(layer.base + layer.rough * 0.4, Math.max(layer.base - layer.rough, level));
-      top.push([x + px, y + h * level]);
-    }
     ctx.fillStyle = layer.color;
     ctx.beginPath();
     ctx.moveTo(x, y + h);
-    top.forEach(([px, py]) => ctx.lineTo(px, py));
+    for (let px = 0; px <= w + 40; px += 40) {
+      level += (rand() - 0.5) * 0.11;
+      level = Math.min(layer.base + layer.rough * 0.4, Math.max(layer.base - layer.rough, level));
+      ctx.lineTo(x + px, y + h * level);
+    }
     ctx.lineTo(x + w, y + h);
     ctx.fill();
-    ctx.strokeStyle = layer.edge;
-    ctx.lineWidth = 1.5;
-    ctx.beginPath();
-    top.forEach(([px, py], index) => (index ? ctx.lineTo(px, py) : ctx.moveTo(px, py)));
-    ctx.stroke();
   });
   ctx.restore();
 }
 
-function dataRows(ctx: CanvasRenderingContext2D, x: number, y: number, rows: number, seed: number) {
-  const rand = seeded(seed);
-  for (let r = 0; r < rows; r++) {
-    for (let c = 0; c < 5; c++) {
-      ctx.fillStyle = `rgba(240,187,102,${0.25 + rand() * 0.6})`;
-      ctx.fillRect(x + c * 26, y + r * 13, 10 + rand() * 12, 4);
-    }
+/** Sets the largest size at which text fits the width, down to a limit. Returns that size. */
+function fitFont(
+  ctx: CanvasRenderingContext2D,
+  text: string,
+  weight: number,
+  largest: number,
+  smallest: number,
+  maxWidth: number,
+  spacing: number,
+  display: string,
+) {
+  let size = largest;
+  ctx.letterSpacing = `${spacing}px`;
+  ctx.font = `${weight} ${size}px ${display}`;
+  while (size > smallest && ctx.measureText(text).width > maxWidth) {
+    size -= 2;
+    ctx.font = `${weight} ${size}px ${display}`;
   }
+  ctx.letterSpacing = "0px";
+  return size;
 }
 
-/** Navigation panels in the Archive hall. */
-export function navPanelTexture(no: string, title: string, sub: string, seed: number) {
+/** Navigation panels in the Archive hall: a number and one big word. */
+export function navPanelTexture(no: string, title: string, seed: number) {
   const w = 640;
   const h = 500;
   return paintedTexture(w, h, (ctx, display) => {
     frame(ctx, w, h);
-    ridges(ctx, 3, 3, w - 6, h - 6, seed);
-    const shade = ctx.createLinearGradient(0, 0, 0, h * 0.62);
-    shade.addColorStop(0, "rgba(6,4,2,0.82)");
+    ridges(ctx, 5, 5, w - 10, h - 10, seed);
+    const shade = ctx.createLinearGradient(0, 0, 0, h * 0.72);
+    shade.addColorStop(0, "rgba(6,4,2,0.92)");
+    shade.addColorStop(0.7, "rgba(6,4,2,0.75)");
     shade.addColorStop(1, "rgba(6,4,2,0)");
     ctx.fillStyle = shade;
-    ctx.fillRect(3, 3, w - 6, h * 0.62);
+    ctx.fillRect(5, 5, w - 10, h * 0.72);
     ctx.fillStyle = GOLD;
-    ctx.font = `500 44px ${display}`;
-    tracked(ctx, no, 40, 78, 5);
+    ctx.font = `500 58px ${display}`;
+    tracked(ctx, no, 38, 92, 4);
     ctx.fillStyle = PALE;
-    ctx.font = `500 56px ${display}`;
-    tracked(ctx, title, 40, 148, 8);
-    ctx.fillStyle = GOLD;
-    ctx.font = `500 25px ${display}`;
-    tracked(ctx, sub, 40, 190, 5);
-    dataRows(ctx, 40, h - 66, 3, seed + 4);
+    fitFont(ctx, title, 600, 104, 60, w - 76, 4, display);
+    tracked(ctx, title, 38, 210, 4);
   });
 }
 
-/** Project cards floating in the orbital archive. */
-export function projectPanelTexture(
-  no: string,
-  title: string,
-  tags: string[],
-  image: string,
-  seed: number,
-) {
+/** Project cards floating in the orbital archive: the title and a large picture. */
+export function projectPanelTexture(no: string, title: string, image: string, seed: number) {
   const w = 760;
   const h = 480;
   return paintedTexture(
@@ -190,23 +168,19 @@ export function projectPanelTexture(
     (ctx, display, images) => {
       frame(ctx, w, h);
       ctx.fillStyle = GOLD;
-      ctx.font = `500 36px ${display}`;
-      tracked(ctx, no, 34, 56, 3);
+      ctx.font = `600 50px ${display}`;
+      tracked(ctx, no, 30, 68, 2);
+      const left = 30 + ctx.measureText(no).width + 26;
       ctx.fillStyle = PALE;
       const heading = title.toUpperCase();
-      let size = 36;
-      ctx.letterSpacing = "4px";
-      ctx.font = `600 ${size}px ${display}`;
-      while (size > 16 && ctx.measureText(heading).width > w - 68) {
-        size -= 2;
-        ctx.font = `600 ${size}px ${display}`;
-      }
-      tracked(ctx, heading, 34, 104, 4);
+      const room = w - left - 28;
+      fitFont(ctx, heading, 600, 50, 34, room, 2, display);
+      tracked(ctx, heading, left, 68, 2);
 
-      const ix = 34;
-      const iy = 128;
-      const iw = 490;
-      const ih = 318;
+      const ix = 28;
+      const iy = 92;
+      const iw = w - 56;
+      const ih = h - iy - 28;
       const picture = images[0];
       if (picture) {
         const scale = Math.max(iw / picture.width, ih / picture.height);
@@ -216,25 +190,6 @@ export function projectPanelTexture(
       } else {
         ridges(ctx, ix, iy, iw, ih, seed);
       }
-      ctx.strokeStyle = "rgba(240,187,102,0.45)";
-      ctx.lineWidth = 2;
-      ctx.strokeRect(ix, iy, iw, ih);
-
-      ctx.fillStyle = "rgba(240,230,210,0.82)";
-      ctx.font = `500 21px ${display}`;
-      tags.slice(0, 4).forEach((tag, index) => {
-        tracked(ctx, `// ${tag.toUpperCase()}`, ix + iw + 22, iy + 28 + index * 38, 2);
-      });
-
-      ctx.strokeStyle = GOLD;
-      ctx.lineWidth = 3;
-      ctx.beginPath();
-      ctx.moveTo(w - 76, h - 44);
-      ctx.lineTo(w - 36, h - 44);
-      ctx.moveTo(w - 50, h - 58);
-      ctx.lineTo(w - 36, h - 44);
-      ctx.lineTo(w - 50, h - 30);
-      ctx.stroke();
     },
     [image],
   );

@@ -52,16 +52,15 @@ const SKY: SkyOptions = {
 const PANELS: {
   no: string;
   title: string;
-  sub: string;
   href: string;
   position: [number, number, number];
   rotation: [number, number, number];
   seed: number;
 }[] = [
-  { no: "01", title: "Projects", sub: "// SELECTED WORKS", href: "/projects", position: [-4.7, 6.5, -2], rotation: [0.02, 0.42, -0.05], seed: 11 },
-  { no: "02", title: "About", sub: "// BACKGROUND", href: "/about", position: [-4.6, 3.25, -1], rotation: [0.03, 0.42, 0.04], seed: 23 },
-  { no: "03", title: "Skills", sub: "// TOOLKIT", href: "/about#skills", position: [6.8, 7, -3], rotation: [0.02, -0.46, 0.06], seed: 31 },
-  { no: "04", title: "Contact", sub: "// LET'S TALK", href: "/contact", position: [5.8, 3.4, -1], rotation: [0.03, -0.44, -0.05], seed: 47 },
+  { no: "01", title: "Projects", href: "/projects", position: [-4.7, 6.5, -2], rotation: [0.02, 0.42, -0.05], seed: 11 },
+  { no: "02", title: "About", href: "/about", position: [-4.6, 3.25, -1], rotation: [0.03, 0.42, 0.04], seed: 23 },
+  { no: "03", title: "Skills", href: "/about#skills", position: [6.8, 7, -3], rotation: [0.02, -0.46, 0.06], seed: 31 },
+  { no: "04", title: "Contact", href: "/contact", position: [5.8, 3.4, -1], rotation: [0.03, -0.44, -0.05], seed: 47 },
 ];
 
 function Dais() {
@@ -117,7 +116,7 @@ export function HallScene({ visible }: { visible: boolean }) {
     return {
       world,
       basis: diskBasis(new THREE.Vector3(...EYE), new THREE.Vector3(...HOLE), TILT, ROLL),
-      textures: PANELS.map((p) => navPanelTexture(p.no, p.title.toUpperCase(), p.sub, p.seed)),
+      textures: PANELS.map((p) => navPanelTexture(p.no, p.title.toUpperCase(), p.seed)),
       shelf: surface(world, { color: "#2a1d10", shine: 30, spec: 0.5, rim: 0.4 }),
     };
   }, []);
@@ -162,7 +161,7 @@ export function HallScene({ visible }: { visible: boolean }) {
         speed={0.09}
       />
       {[8.8, 11.3, 14].map((radius) => (
-        <GlowRing key={radius} radius={radius} position={HOLE} quaternion={rotateRing(basis)} tube={0.011} power={1.5} />
+        <GlowRing key={radius} radius={radius} position={HOLE} quaternion={rotateRing(basis)} tube={0.017} power={1.1} behindPanels />
       ))}
 
       {PANELS.map((panel, index) => (
@@ -171,8 +170,8 @@ export function HallScene({ visible }: { visible: boolean }) {
           texture={textures[index]}
           position={panel.position}
           rotation={panel.rotation}
-          width={2.8}
-          height={2.19}
+          width={3.3}
+          height={2.58}
           phase={index * 1.4}
           onHover={(over) => {
             if (over) prepareScene(sceneForPath(panel.href.split("#")[0]));
@@ -199,7 +198,7 @@ export function HallScene({ visible }: { visible: boolean }) {
         </group>
       ))}
 
-      <Figure world={world} kind="coat" position={[0, 0, 10]} rim={1.1} pack />
+      <Figure world={world} kind="coat" position={[0, 0, 10]} rim={1.1} />
       </Staged>
     </group>
   );

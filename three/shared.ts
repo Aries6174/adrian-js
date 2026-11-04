@@ -324,6 +324,9 @@ export function surface(
 }
 
 /** Self-lit material. Values above 1 feed the bloom pass. */
+/** Render scale relative to the usual one, so point sizes look the same at any quality. */
+export const uPixels = { value: 1 };
+
 export function glow(color: string, power = 4) {
   return new THREE.MeshBasicMaterial({
     color: new THREE.Color(color).multiplyScalar(power),
@@ -343,8 +346,9 @@ export function diskBasis(
   const back = eye.clone().sub(center).normalize();
   const right = new THREE.Vector3(0, 1, 0).cross(back).normalize();
   const up = back.clone().cross(right);
-  const c = Math.cos(roll);
-  const s = Math.sin(roll);
+  // The black hole's shader turns its picture the other way, so this matches what it draws.
+  const c = Math.cos(-roll);
+  const s = Math.sin(-roll);
   const rolled = (x: number, y: number, z: number) =>
     right
       .clone()
