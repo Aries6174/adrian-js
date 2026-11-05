@@ -1,7 +1,8 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useRef } from "react";
+import type { CSSProperties } from "react";
+import { useEffect, useRef, useState } from "react";
 import { type Project, projectFilters } from "@/lib/content";
 import { getStage, PROJECTS_IN_VIEW, setStage, useStage } from "@/lib/stage";
 import { External, Eyebrow, PageTitle, stagger } from "./ui";
@@ -24,11 +25,19 @@ function pad(value: number) {
   return String(value).padStart(2, "0");
 }
 
+/** Position in the build-in sequence, which sets how long a piece waits to appear. */
+function order(index: number) {
+  return { "--i": index } as CSSProperties;
+}
+
 export function ProjectsView({ projects }: { projects: Project[] }) {
   const selectedId = useStage((s) => s.projectId);
   const filter = useStage((s) => s.filter);
   const scroll = useStage((s) => s.projectScroll);
   const strip = useRef<HTMLDivElement>(null);
+  const details = useRef<HTMLElement>(null);
+  // On arrival the details wait for their panel to slide in. After that they start at once.
+  const [arrived, setArrived] = useState(false);
 
   const list = matching(projects, filter);
   const position = Math.max(0, list.findIndex((item) => item.id === selectedId));
@@ -62,6 +71,15 @@ export function ProjectsView({ projects }: { projects: Project[] }) {
       projectScroll: Math.max(0, Math.min(index, options.length - PROJECTS_IN_VIEW)),
     });
   };
+
+  useEffect(() => {
+    const id = window.setTimeout(() => setArrived(true), 1500);
+    return () => window.clearTimeout(id);
+  }, []);
+
+  useEffect(() => {
+    details.current?.scrollTo({ top: 0 });
+  }, [project?.id]);
 
   // Clicking a 3D panel can select a project that is not yet visible in the strip.
   useEffect(() => {
@@ -183,7 +201,8 @@ export function ProjectsView({ projects }: { projects: Project[] }) {
 
       <article
         className="hud-panel slide-left mt-3 flex flex-col p-5 lg:absolute lg:bottom-[1.4rem] lg:right-[var(--gutter)] lg:top-[5.5rem] lg:mt-0 lg:w-[20rem] lg:overflow-y-auto"
-        style={stagger(4)}
+        ref={details}
+        style={{ ...stagger(4), "--reveal-wait": arrived ? "0ms" : "700ms" } as CSSProperties}
         data-active="true"
         aria-live="polite"
       >
@@ -206,44 +225,50 @@ export function ProjectsView({ projects }: { projects: Project[] }) {
               </div>
             </div>
 
-            <div className="mt-3 flex aspect-[16/7.6] shrink-0 gap-1">
+            {/* A new key restarts every animation inside when the project changes. */}
+            <div key={project.id} className="contents">
+            <div className="detail-gallery mt-3 flex aspect-[16/7.6] shrink-0 gap-1">
               {project.gallery.map((src, index) => (
                 <div
                   key={src}
-                  className={`relative overflow-hidden border border-gold-faint ${index === 0 ? "flex-[3]" : "flex-[2]"}`}
+                  className={`detail-wipe relative overflow-hidden border border-gold-faint ${index === 0 ? "flex-[3]" : "flex-[2]"}`}
+                  style={order(index)}
                 >
                   <Image
                     src={src}
                     alt={index === 0 ? `${project.title} preview` : `${project.title} image ${index + 1}`}
                     fill
                     sizes="(max-width: 1024px) 60vw, 14vw"
-                    className={project.fit === "contain" ? "object-contain" : "object-cover"}
+                    className={`detail-image ${project.fit === "contain" ? "object-contain" : "object-cover"}`}
                   />
                 </div>
               ))}
+              <span aria-hidden className="detail-scan" />
             </div>
             {project.credit && (
-              <p className="mt-1 text-[0.56rem] leading-snug tracking-wide text-muted">{project.credit}</p>
+              <p className="detail-in mt-1 text-[0.56rem] leading-snug tracking-wide text-muted" style={order(3)}>{project.credit}</p>
             )}
 
             <h2 className="display mt-4 text-[1.32rem] leading-[1.2] text-gold">
-              {project.headline.map((line) => (
-                <span key={line} className="block">
-                  {line}
+              {project.headline.map((line, index) => (
+                <span key={line} className="block overflow-hidden">
+                  <span className="detail-line block" style={order(3 + index)}>
+                    {line}
+                  </span>
                 </span>
               ))}
             </h2>
-            <p className="copy mt-2">{project.summary}</p>
+            <p className="detail-in copy mt-2" style={order(5)}>{project.summary}</p>
 
             <ul className="mt-3 flex flex-wrap gap-1.5" aria-label="Technologies">
-              {project.tags.map((tag) => (
-                <li key={tag} className="tag">
+              {project.tags.map((tag, index) => (
+                <li key={tag} className="detail-pop tag" style={order(6 + index * 0.5)}>
                   {tag}
                 </li>
               ))}
             </ul>
 
-            <div className="mt-4 grid grid-cols-2 gap-3">
+            <div className="detail-in mt-4 grid grid-cols-2 gap-3" style={order(8)}>
               {project.live ? (
                 <a className="btn" data-solid="true" href={project.live} target="_blank" rel="noreferrer">
                   View Live <External />
@@ -261,7 +286,7 @@ export function ProjectsView({ projects }: { projects: Project[] }) {
             </div>
 
             {project.overview && (
-              <div className="mt-4 border-t border-gold-faint pt-3">
+              <div className="detail-in mt-4 border-t border-gold-faint pt-3" style={order(9)}>
                 <h3 className="label flex items-center gap-2 text-soft">
                   <span className="size-1 rounded-full bg-gold" /> Overview
                 </h3>
@@ -270,17 +295,18 @@ export function ProjectsView({ projects }: { projects: Project[] }) {
             )}
 
             {project.features.length > 0 && (
-              <div className="mt-3 border-t border-gold-faint pt-3">
+              <div className="detail-in mt-3 border-t border-gold-faint pt-3" style={order(10)}>
                 <h3 className="label flex items-center gap-2 text-soft">
                   <span className="size-1 rounded-full bg-gold" /> Key Features
                 </h3>
                 <ul className="mt-2 flex list-inside list-disc flex-col gap-0.5 pl-3 text-[0.76rem] tracking-wide text-soft marker:text-gold">
-                  {project.features.map((feature) => (
-                    <li key={feature}>{feature}</li>
+                  {project.features.map((feature, index) => (
+                    <li key={feature} className="detail-in" style={order(10.5 + index * 0.5)}>{feature}</li>
                   ))}
                 </ul>
               </div>
             )}
+            </div>
           </>
         )}
       </article>

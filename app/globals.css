@@ -407,11 +407,178 @@ body {
   animation: blink 1.15s steps(1) infinite;
 }
 
+/* Project details: the pictures are scanned in, then the text follows a piece at a time. */
+@keyframes detail-in {
+  from {
+    opacity: 0;
+    transform: translateY(0.6rem);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes detail-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.82);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes detail-line {
+  from {
+    transform: translateY(105%);
+  }
+  to {
+    transform: none;
+  }
+}
+@keyframes detail-wipe {
+  from {
+    clip-path: inset(0 100% 0 0);
+  }
+  to {
+    clip-path: inset(0 0 0 0);
+  }
+}
+@keyframes detail-image {
+  from {
+    transform: scale(1.12);
+    filter: brightness(1.8);
+  }
+  to {
+    transform: none;
+    filter: none;
+  }
+}
+@keyframes detail-scan {
+  0% {
+    left: 0;
+    opacity: 1;
+  }
+  85% {
+    opacity: 1;
+  }
+  100% {
+    left: 100%;
+    opacity: 0;
+  }
+}
+.detail-in,
+.detail-pop,
+.detail-line,
+.detail-wipe,
+.detail-image,
+.detail-scan {
+  animation-delay: calc(var(--i, 0) * 65ms + var(--reveal-wait, 0ms));
+  animation-fill-mode: both;
+  animation-timing-function: cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+.detail-in {
+  animation-name: detail-in;
+  animation-duration: 480ms;
+}
+.detail-pop {
+  animation-name: detail-pop;
+  animation-duration: 340ms;
+}
+.detail-line {
+  animation-name: detail-line;
+  animation-duration: 560ms;
+}
+.detail-wipe {
+  animation-name: detail-wipe;
+  animation-duration: 620ms;
+}
+.detail-image {
+  animation-name: detail-image;
+  animation-duration: 900ms;
+}
+.detail-gallery {
+  position: relative;
+}
+.detail-scan {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  pointer-events: none;
+  background: var(--gold-bright);
+  box-shadow: 0 0 0.7rem var(--gold-bright);
+  animation-name: detail-scan;
+  animation-duration: 700ms;
+  animation-timing-function: linear;
+}
+
+/* GitHub progress. Bars are segmented with a repeating gradient, and the graph fills week by week. */
+@keyframes language-grow {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: none;
+  }
+}
+@keyframes day-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+.language-track {
+  background: repeating-linear-gradient(90deg, rgb(255 255 255 / 0.07) 0 5px, transparent 5px 7px);
+}
+.language-bar {
+  background: repeating-linear-gradient(90deg, var(--gold) 0 5px, transparent 5px 7px);
+  transform-origin: left;
+  animation: language-grow 800ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  animation-delay: calc(var(--i, 0) * 70ms + 500ms);
+}
+.contribution-day,
+.contribution-swatch {
+  background: rgb(255 255 255 / 0.06);
+}
+.contribution-day {
+  animation: day-in 260ms ease both;
+  animation-delay: calc(var(--week, 0) * 14ms + 600ms);
+}
+[data-level="1"].contribution-day,
+[data-level="1"].contribution-swatch {
+  background: #5d4520;
+}
+[data-level="2"].contribution-day,
+[data-level="2"].contribution-swatch {
+  background: #92692b;
+}
+[data-level="3"].contribution-day,
+[data-level="3"].contribution-swatch {
+  background: #cf9a44;
+}
+[data-level="4"].contribution-day,
+[data-level="4"].contribution-swatch {
+  background: #ffd591;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .rise,
   .slide-left,
-  .caret {
+  .caret,
+  .detail-in,
+  .detail-pop,
+  .detail-line,
+  .detail-wipe,
+  .detail-image,
+  .language-bar,
+  .contribution-day {
     animation: none;
+  }
+  .detail-scan {
+    display: none;
   }
   .page {
     transition: none;

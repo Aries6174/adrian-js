@@ -27,6 +27,10 @@ type Driver = {
   addMessage(message: StoredMessage): Promise<void>;
   listMessages(): Promise<StoredMessage[]>;
   deleteMessage(id: string): Promise<void>;
+  readValue(id: string): Promise<string | null>;
+  writeValue(id: string, value: string): Promise<void>;
+  addVisit(hour: string): Promise<void>;
+  countVisits(since: string): Promise<{ total: number; recent: { hour: string; count: number }[] }>;
 };
 
 const MESSAGE_LIMIT = 500;
@@ -41,6 +45,7 @@ async function sqliteDriver(): Promise<Driver> {
     CREATE TABLE IF NOT EXISTS site (id TEXT PRIMARY KEY, value TEXT NOT NULL);
     CREATE TABLE IF NOT EXISTS media (id TEXT PRIMARY KEY, type TEXT NOT NULL, bytes BLOB NOT NULL, created_at TEXT NOT NULL);
     CREATE TABLE IF NOT EXISTS messages (id TEXT PRIMARY KEY, name TEXT NOT NULL, email TEXT NOT NULL, body TEXT NOT NULL, emailed INTEGER NOT NULL, created_at TEXT NOT NULL);
+    CREATE TABLE IF NOT EXISTS visits (hour TEXT PRIMARY KEY, count INTEGER NOT NULL);
   `);
   return {
     async readContent() {
@@ -95,6 +100,21 @@ async function sqliteDriver(): Promise<Driver> {
     async deleteMessage(id) {
       db.prepare("DELETE FROM messages WHERE id = ?").run(id);
     },
+    async readValue(id) {
+      const row = db.prepare("SELECT value FROM site WHERE id = ?").get(id) as { value: string } | undefined;
+      return row?.value ?? null;
+    },
+    async writeValue(id, value) {
+      db.prepare("INSERT INTO site (id, value) VALUES (?, ?) ON CONFLICT (id) DO UPDATE SET value = excluded.value").run(id, value);
+    },
+    async addVisit(hour) {
+      db.prepare("INSERT INTO visits (hour, count) VALUES (?, 1) ON CONFLICT (hour) DO UPDATE SET count = count + 1").run(hour);
+    },
+    async countVisits(since) {
+      const { total } = db.prepare("SELECT COALESCE(SUM(count), 0) AS total FROM visits").get() as { total: number };
+      const recent = db.prepare("SELECT hour, count FROM visits WHERE hour >= ?").all(since) as { hour: string; count: number }[];
+      return { total, recent };
+    },
   };
 }
 
@@ -106,6 +126,7 @@ async function postgresDriver(url: string): Promise<Driver> {
     CREATE TABLE IF NOT EXISTS site (id TEXT PRIMARY KEY, value TEXT NOT NULL);
     CREATE TABLE IF NOT EXISTS media (id TEXT PRIMARY KEY, type TEXT NOT NULL, bytes BYTEA NOT NULL, created_at TEXT NOT NULL);
     CREATE TABLE IF NOT EXISTS messages (id TEXT PRIMARY KEY, name TEXT NOT NULL, email TEXT NOT NULL, body TEXT NOT NULL, emailed BOOLEAN NOT NULL, created_at TEXT NOT NULL);
+    CREATE TABLE IF NOT EXISTS visits (hour TEXT PRIMARY KEY, count INTEGER NOT NULL);
   `);
   return {
     async readContent() {
@@ -145,6 +166,24 @@ async function postgresDriver(url: string): Promise<Driver> {
     },
     async deleteMessage(id) {
       await sql`DELETE FROM messages WHERE id = ${id}`;
+    },
+    async readValue(id) {
+      const rows = await sql`SELECT value FROM site WHERE id = ${id}`;
+      return (rows[0]?.value as string | undefined) ?? null;
+    },
+    async writeValue(id, value) {
+      await sql`INSERT INTO site (id, value) VALUES (${id}, ${value}) ON CONFLICT (id) DO UPDATE SET value = excluded.value`;
+    },
+    async addVisit(hour) {
+      await sql`INSERT INTO visits (hour, count) VALUES (${hour}, 1) ON CONFLICT (hour) DO UPDATE SET count = visits.count + 1`;
+    },
+    async countVisits(since) {
+      const totals = await sql`SELECT COALESCE(SUM(count), 0) AS total FROM visits`;
+      const rows = await sql`SELECT hour, count FROM visits WHERE hour >= ${since}`;
+      return {
+        total: Number(totals[0].total),
+        recent: rows.map((row) => ({ hour: row.hour as string, count: Number(row.count) })),
+      };
     },
   };
 }
@@ -219,4 +258,30 @@ export async function listMessages() {
 
 export async function deleteMessage(id: string) {
   await (await driver()).deleteMessage(id);
+}
+
+export async function readValue(id: string) {
+  return (await driver()).readValue(id);
+}
+
+export async function writeValue(id: string, value: string) {
+  await (await driver()).writeValue(id, value);
+}
+
+/** Hours are kept as text like 2026-11-05T14, in UTC, which also sorts in time order. */
+function hourKey(time: number) {
+  return new Date(time).toISOString().slice(0, 13);
+}
+
+export async function recordVisit() {
+  await (await driver()).addVisit(hourKey(Date.now()));
+}
+
+/** The all-time count, and the count for each of the last hours, oldest first. */
+export async function readVisits(hours: number) {
+  const now = Date.now();
+  const keys = Array.from({ length: hours }, (_, index) => hourKey(now - (hours - 1 - index) * 3600_000));
+  const { total, recent } = await (await driver()).countVisits(keys[0]);
+  const counts = new Map(recent.map((row) => [row.hour, row.count]));
+  return { total, hours: keys.map((key) => counts.get(key) ?? 0) };
 }

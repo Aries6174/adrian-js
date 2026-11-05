@@ -4,7 +4,9 @@ import Image from "next/image";
 import type { CSSProperties, ReactNode } from "react";
 import { useEffect, useRef } from "react";
 import { type About, aboutSections } from "@/lib/content";
+import type { GithubStats } from "@/lib/github";
 import { setStage, useStage } from "@/lib/stage";
+import { GithubProgress } from "./GithubPanel";
 import { Arrow, Eyebrow, FootNote, Icon, PageTitle, SectionLabel, stagger } from "./ui";
 
 function Panel({
@@ -27,7 +29,15 @@ function Panel({
   );
 }
 
-export function AboutView({ about }: { about: About }) {
+export function AboutView({
+  about,
+  github,
+  githubHandle,
+}: {
+  about: About;
+  github: GithubStats | null;
+  githubHandle: string;
+}) {
   const section = useStage((s) => s.aboutSection);
   const firstRun = useRef(true);
   const sectionId = aboutSections[section].id;
@@ -196,6 +206,11 @@ export function AboutView({ about }: { about: About }) {
             &ldquo;{about.quote}&rdquo;
             <span className="rule mt-2" />
           </blockquote>
+        </Panel>
+
+        <Panel id="github" active={section === 5} step={7} className="p-4">
+          <SectionLabel no="06">GitHub progress</SectionLabel>
+          <GithubProgress stats={github} handle={githubHandle} />
         </Panel>
       </div>
     </main>

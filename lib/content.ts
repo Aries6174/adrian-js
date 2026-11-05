@@ -132,6 +132,7 @@ export const aboutSections = [
   { id: "skills", label: "Skills" },
   { id: "journey", label: "Journey" },
   { id: "interests", label: "Interests" },
+  { id: "github", label: "GitHub" },
 ];
 
 /** The order set on the admin page, with anything added since at the top, newest first. */

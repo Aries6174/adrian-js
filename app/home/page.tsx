@@ -3,6 +3,7 @@ import Image from "next/image";
 import { Suspense } from "react";
 import { PageReady } from "@/components/PageReady";
 import { TravelLink } from "@/components/TravelLink";
+import { VisitorCounter } from "@/components/VisitorCounter";
 import { Arrow, Eyebrow, Icon, PageTitle, stagger } from "@/components/ui";
 import { inDisplayOrder } from "@/lib/content";
 import { loadContent } from "@/lib/store";
@@ -132,6 +133,7 @@ export default function HomePage() {
           &ldquo;Turning ideas into interactive realities.&rdquo;
         </blockquote>
         <span className="rule mt-3" />
+        <VisitorCounter className="mt-6" />
       </aside>
 
       <div
@@ -159,6 +161,7 @@ export default function HomePage() {
         <Suspense fallback={<div className="mt-3 h-[6.1rem] lg:mt-4" />}>
           <InfoCards />
         </Suspense>
+        <VisitorCounter className="mt-4 lg:hidden" />
       </div>
     </main>
   );

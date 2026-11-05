@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Suspense } from "react";
 import { AboutView } from "@/components/AboutView";
 import { PageReady } from "@/components/PageReady";
+import { loadGithub } from "@/lib/github";
 import { loadContent } from "@/lib/store";
 
 export const metadata: Metadata = {
@@ -11,10 +12,11 @@ export const metadata: Metadata = {
 };
 
 async function AboutContent() {
-  const { about } = await loadContent();
+  const { about, profile } = await loadContent();
+  const github = await loadGithub(profile.githubHandle);
   return (
     <>
-      <AboutView about={about} />
+      <AboutView about={about} github={github} githubHandle={profile.githubHandle} />
       <PageReady path="/about" />
     </>
   );

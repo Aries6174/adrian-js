@@ -10,6 +10,7 @@ import {
   setStage,
   useStage,
 } from "@/lib/stage";
+import { visitStats } from "@/lib/visits";
 import { Header } from "./Header";
 
 const Experience = dynamic(() => import("@/three/Experience"), { ssr: false });
@@ -46,13 +47,18 @@ export function SiteShell({ children }: { children: ReactNode }) {
     if (!supportsWebGL()) setStage({ webgl: false });
   }, []);
 
+  const inAdmin = pathname.startsWith("/admin");
+  useEffect(() => {
+    if (!inAdmin) visitStats();
+  }, [inAdmin]);
+
   const [worldStarted, setWorldStarted] = useState(false);
   useEffect(() => {
     const id = window.setTimeout(() => setWorldStarted(true), 450);
     return () => window.clearTimeout(id);
   }, []);
 
-  if (pathname.startsWith("/admin")) return <>{children}</>;
+  if (inAdmin) return <>{children}</>;
 
   const isIntro = sceneForPath(pathname) === "intro";
 
