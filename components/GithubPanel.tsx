@@ -77,12 +77,17 @@ function Calendar({ days }: { days: GithubDay[] }) {
   );
 }
 
+/** Holds the panel's space while GitHub answers, so nothing jumps when the graph arrives. */
+export function GithubLoading() {
+  return <p className="copy mt-3 min-h-[20rem] text-muted">Reading the contribution graph...</p>;
+}
+
 export function GithubProgress({ stats, handle }: { stats: GithubStats | null; handle: string }) {
   const profile = `https://github.com/${handle}`;
   if (!stats) {
     return (
       <p className="copy mt-3">
-        GitHub can&apos;t be reached right now.{" "}
+        The contribution graph will be back shortly.{" "}
         <a href={profile} target="_blank" rel="noreferrer" className="text-gold underline">
           See the profile on GitHub
         </a>
@@ -94,7 +99,26 @@ export function GithubProgress({ stats, handle }: { stats: GithubStats | null; h
 
   return (
     <>
-      <div className="mt-3 grid gap-4 md:grid-cols-[1fr_14rem]">
+      <div className="mt-3">
+        <div className="mb-2 flex flex-wrap items-baseline justify-between gap-x-4">
+          <p className="text-[0.72rem] tracking-wide text-soft">
+            <span className="text-gold">{stats.total.toLocaleString("en-US")}</span> contributions in the last year
+          </p>
+          <a href={profile} target="_blank" rel="noreferrer" className="label flex items-center gap-1.5 text-[0.6rem] text-soft transition-colors hover:text-gold max-lg:py-2.5">
+            @{stats.handle} <External />
+          </a>
+        </div>
+        <Calendar days={stats.days} />
+        <div className="mt-1.5 flex items-center justify-end gap-1 text-[0.56rem] tracking-wide text-muted">
+          Less
+          {LEVELS.map((level) => (
+            <span key={level} data-level={level} className="contribution-swatch size-2.5" />
+          ))}
+          More
+        </div>
+      </div>
+
+      <div className="mt-4 grid gap-4 border-t border-gold-faint pt-3 md:grid-cols-[1fr_14rem]">
         <div>
           <p className="label text-[0.6rem] text-muted">Languages · public repos</p>
           <ul className="mt-2 grid gap-1">
@@ -121,25 +145,6 @@ export function GithubProgress({ stats, handle }: { stats: GithubStats | null; h
           <Stat value={`${stats.longestStreak}d`} label="Longest streak" />
           <Stat value={String(stats.repos)} label="Public repos" />
           <Stat value={String(stats.busiest?.count ?? 0)} label="Busiest day" />
-        </div>
-      </div>
-
-      <div className="mt-4 border-t border-gold-faint pt-3">
-        <div className="mb-2 flex flex-wrap items-baseline justify-between gap-x-4">
-          <p className="text-[0.72rem] tracking-wide text-soft">
-            <span className="text-gold">{stats.total.toLocaleString("en-US")}</span> contributions in the last year
-          </p>
-          <a href={profile} target="_blank" rel="noreferrer" className="label flex items-center gap-1.5 text-[0.6rem] text-soft transition-colors hover:text-gold max-lg:py-2.5">
-            @{stats.handle} <External />
-          </a>
-        </div>
-        <Calendar days={stats.days} />
-        <div className="mt-1.5 flex items-center justify-end gap-1 text-[0.56rem] tracking-wide text-muted">
-          Less
-          {LEVELS.map((level) => (
-            <span key={level} data-level={level} className="contribution-swatch size-2.5" />
-          ))}
-          More
         </div>
       </div>
     </>

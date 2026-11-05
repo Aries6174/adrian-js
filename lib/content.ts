@@ -127,13 +127,15 @@ export const projectFilters: {
 ];
 
 export const aboutSections = [
+  { id: "github", label: "GitHub" },
   { id: "intro", label: "Intro" },
   { id: "background", label: "Background" },
   { id: "skills", label: "Skills" },
   { id: "journey", label: "Journey" },
   { id: "interests", label: "Interests" },
-  { id: "github", label: "GitHub" },
 ];
+
+export const SKILLS_SECTION = aboutSections.findIndex((section) => section.id === "skills");
 
 /** The order set on the admin page, with anything added since at the top, newest first. */
 export function inDisplayOrder(projects: Project[]) {

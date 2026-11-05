@@ -1,7 +1,7 @@
 "use client";
 
 import { useSyncExternalStore } from "react";
-import type { Project } from "./content";
+import { type Project, SKILLS_SECTION } from "./content";
 
 export type SceneId = "intro" | "hall" | "projects" | "about" | "contact";
 
@@ -183,7 +183,7 @@ export function travel(href: string) {
   const [path, hash] = href.split("#");
   const scene = sceneForPath(path);
 
-  if (hash === "skills") setStage({ aboutSection: 2 });
+  if (hash === "skills") setStage({ aboutSection: SKILLS_SECTION });
   prepareScene(scene);
 
   if (phase !== "idle") {

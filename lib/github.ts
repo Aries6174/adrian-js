@@ -19,8 +19,8 @@ export type GithubStats = {
 };
 
 const HOUR = 3600_000;
-const RETRY = 300_000;
-const FETCH_LIMIT = 5000;
+const RETRY = 60_000;
+const FETCH_LIMIT = 10_000;
 const SHOWN_LANGUAGES = 7;
 
 const headers = { "User-Agent": "adrian-js-portfolio" };

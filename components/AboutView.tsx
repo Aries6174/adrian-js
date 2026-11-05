@@ -3,10 +3,8 @@
 import Image from "next/image";
 import type { CSSProperties, ReactNode } from "react";
 import { useEffect, useRef } from "react";
-import { type About, aboutSections } from "@/lib/content";
-import type { GithubStats } from "@/lib/github";
+import { type About, aboutSections, SKILLS_SECTION } from "@/lib/content";
 import { setStage, useStage } from "@/lib/stage";
-import { GithubProgress } from "./GithubPanel";
 import { Arrow, Eyebrow, FootNote, Icon, PageTitle, SectionLabel, stagger } from "./ui";
 
 function Panel({
@@ -29,21 +27,13 @@ function Panel({
   );
 }
 
-export function AboutView({
-  about,
-  github,
-  githubHandle,
-}: {
-  about: About;
-  github: GithubStats | null;
-  githubHandle: string;
-}) {
+export function AboutView({ about, github }: { about: About; github: ReactNode }) {
   const section = useStage((s) => s.aboutSection);
   const firstRun = useRef(true);
   const sectionId = aboutSections[section].id;
 
   useEffect(() => {
-    if (window.location.hash === "#skills") setStage({ aboutSection: 2 });
+    if (window.location.hash === "#skills") setStage({ aboutSection: SKILLS_SECTION });
   }, []);
 
   // Bring the chosen panel into view, but leave the page alone when it first appears.
@@ -85,9 +75,14 @@ export function AboutView({
       <div
         className="mt-[34dvh] flex flex-col gap-3 lg:absolute lg:bottom-[2rem] lg:right-[var(--gutter)] lg:top-[5.5rem] lg:mt-0 lg:w-[43rem] lg:gap-3 lg:overflow-y-auto"
       >
-        <Panel id="intro" active={section === 0} step={2} className="grid gap-5 p-4 md:grid-cols-[1fr_16.5rem]">
+        <Panel id="github" active={section === 0} step={2} className="p-4">
+          <SectionLabel no="01">GitHub progress</SectionLabel>
+          {github}
+        </Panel>
+
+        <Panel id="intro" active={section === 1} step={3} className="grid gap-5 p-4 md:grid-cols-[1fr_16.5rem]">
           <div>
-            <SectionLabel no="01">Who am I</SectionLabel>
+            <SectionLabel no="02">Who am I</SectionLabel>
             <h2 className="display mt-2.5 text-[1.25rem] leading-[1.28] text-gold">
               {about.heading}
             </h2>
@@ -111,8 +106,8 @@ export function AboutView({
         </Panel>
 
         <div className="grid gap-3 md:grid-cols-2">
-          <Panel id="background" active={section === 1} step={3} className="p-4">
-            <SectionLabel no="02">Education</SectionLabel>
+          <Panel id="background" active={section === 2} step={4} className="p-4">
+            <SectionLabel no="03">Education</SectionLabel>
             <div className="mt-3 flex gap-4">
               <div className="relative w-[7.2rem] shrink-0 overflow-hidden border border-gold-faint">
                 <Image src={about.education.image} alt={about.education.imageAlt} fill sizes="10vw" className="object-cover" />
@@ -153,8 +148,8 @@ export function AboutView({
             </div>
           </Panel>
 
-          <Panel id="skills" active={section === 2} step={4} className="p-4">
-            <SectionLabel no="03">Tech stack</SectionLabel>
+          <Panel id="skills" active={section === 3} step={5} className="p-4">
+            <SectionLabel no="04">Tech stack</SectionLabel>
             <ul className="mt-3 grid grid-cols-4 gap-x-2 gap-y-2.5">
               {about.techStack.map((tech) => (
                 <li key={tech.name} className="group text-center">
@@ -169,8 +164,8 @@ export function AboutView({
           </Panel>
         </div>
 
-        <Panel id="journey" active={section === 3} step={5} className="p-4">
-          <SectionLabel no="04">Journey</SectionLabel>
+        <Panel id="journey" active={section === 4} step={6} className="p-4">
+          <SectionLabel no="05">Journey</SectionLabel>
           <ol
             className="relative mt-3 grid grid-cols-2 gap-y-4 sm:[grid-template-columns:repeat(var(--steps),minmax(0,1fr))]"
             style={{ "--steps": Math.max(1, about.journey.length) } as CSSProperties}
@@ -190,9 +185,9 @@ export function AboutView({
           </ol>
         </Panel>
 
-        <Panel id="interests" active={section === 4} step={6} className="grid items-center gap-4 p-4 md:grid-cols-[1fr_15rem]">
+        <Panel id="interests" active={section === 5} step={7} className="grid items-center gap-4 p-4 md:grid-cols-[1fr_15rem]">
           <div>
-            <SectionLabel no="05">Interests</SectionLabel>
+            <SectionLabel no="06">Interests</SectionLabel>
             <ul className="mt-3 flex justify-between gap-2">
               {about.interests.map((interest) => (
                 <li key={interest.name} className="text-center text-gold">
@@ -206,11 +201,6 @@ export function AboutView({
             &ldquo;{about.quote}&rdquo;
             <span className="rule mt-2" />
           </blockquote>
-        </Panel>
-
-        <Panel id="github" active={section === 5} step={7} className="p-4">
-          <SectionLabel no="06">GitHub progress</SectionLabel>
-          <GithubProgress stats={github} handle={githubHandle} />
         </Panel>
       </div>
     </main>

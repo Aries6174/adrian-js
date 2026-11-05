@@ -81,12 +81,8 @@ export function SiteShell({ children }: { children: ReactNode }) {
       {webgl && (
         <div
           aria-hidden
-          className="pointer-events-none fixed inset-0 z-[5] flex items-center justify-center bg-ink bg-cover bg-center max-lg:items-start max-lg:pt-[24dvh] transition-opacity duration-[1400ms]"
-          style={{
-            opacity: ready ? 0 : 1,
-            // A picture of the world while the real one builds, instead of a black screen.
-            backgroundImage: mounted && isIntro ? "url(/art/poster-intro.webp)" : undefined,
-          }}
+          className="pointer-events-none fixed inset-0 z-[5] flex items-center justify-center bg-ink max-lg:items-start max-lg:pt-[24dvh] transition-opacity duration-[1400ms]"
+          style={{ opacity: ready ? 0 : 1 }}
         >
           <div className="w-40">
             <p className="label mb-3 text-center text-muted">Entering orbit</p>
