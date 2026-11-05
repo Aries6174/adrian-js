@@ -4,11 +4,19 @@ import { addMedia } from "@/lib/store";
 
 const MAX_BYTES = 4 * 1024 * 1024;
 
+function sameHost(origin: string, host: string | null) {
+  try {
+    return new URL(origin).host === host;
+  } catch {
+    return false;
+  }
+}
+
 export async function POST(request: Request) {
   if (!(await isAdmin())) return Response.json({ error: "Please log in again." }, { status: 401 });
 
   const origin = request.headers.get("origin");
-  if (origin && new URL(origin).host !== request.headers.get("host")) {
+  if (origin && !sameHost(origin, request.headers.get("host"))) {
     return Response.json({ error: "Request refused." }, { status: 403 });
   }
 

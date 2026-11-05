@@ -81,8 +81,12 @@ export function SiteShell({ children }: { children: ReactNode }) {
       {webgl && (
         <div
           aria-hidden
-          className="pointer-events-none fixed inset-0 z-[5] flex items-center justify-center bg-ink transition-opacity duration-[1400ms]"
-          style={{ opacity: ready ? 0 : 1 }}
+          className="pointer-events-none fixed inset-0 z-[5] flex items-center justify-center bg-ink bg-cover bg-center max-lg:items-start max-lg:pt-[24dvh] transition-opacity duration-[1400ms]"
+          style={{
+            opacity: ready ? 0 : 1,
+            // A picture of the world while the real one builds, instead of a black screen.
+            backgroundImage: mounted && isIntro ? "url(/art/poster-intro.webp)" : undefined,
+          }}
         >
           <div className="w-40">
             <p className="label mb-3 text-center text-muted">Entering orbit</p>
@@ -113,7 +117,14 @@ export function SiteShell({ children }: { children: ReactNode }) {
             "linear-gradient(90deg, rgb(5 4 3 / 0.62), rgb(5 4 3 / 0.3) 22%, transparent 38%), linear-gradient(180deg, rgb(5 4 3 / 0.6), transparent 13%)",
         }}
       />
-      <div aria-hidden className="pointer-events-none fixed inset-0 z-[6] bg-ink/45 lg:hidden" />
+      {/* Darkest behind the words: at the bottom on Intro, at the top everywhere else. */}
+      <div
+        aria-hidden
+        className="pointer-events-none fixed inset-0 z-[6] lg:hidden"
+        style={{
+          background: `linear-gradient(${isIntro ? "0deg" : "180deg"}, rgb(5 4 3 / 0.86), rgb(5 4 3 / 0.74) 56%, rgb(5 4 3 / 0.2) 78%, rgb(5 4 3 / 0.34))`,
+        }}
+      />
       <div className="edge-rail" aria-hidden />
       <Header />
       {children}

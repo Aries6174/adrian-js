@@ -7,6 +7,7 @@ import { isEmail } from "@/lib/validate";
 
 const WINDOW_MS = 10 * 60 * 1000;
 const MAX_PER_WINDOW = 5;
+const MAX_TRACKED = 1000;
 const recent = new Map<string, number[]>();
 
 export type SendResult = { status: "sent" } | { status: "error"; message: string };
@@ -37,6 +38,11 @@ export async function sendMessage(input: {
     return { status: "error", message: "Too many messages. Please try again in a few minutes." };
   }
   recent.set(ip, [...times, now]);
+  if (recent.size > MAX_TRACKED) {
+    for (const [key, list] of recent) {
+      if (list.every((time) => now - time >= WINDOW_MS)) recent.delete(key);
+    }
+  }
 
   const { profile } = await readContent();
   const emailed = await sendContactEmail({ to: profile.email, name, email, body });

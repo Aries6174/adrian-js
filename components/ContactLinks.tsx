@@ -13,8 +13,8 @@ function Body({ icon, label, value }: { icon: string; label: ReactNode; value: R
       <span className="flex h-[2.2rem] items-center justify-center text-gold">
         <Icon name={icon} className="size-6" />
       </span>
-      <span className="label block text-[0.62rem] text-text">{label}</span>
-      <span className="mt-0.5 block truncate text-[0.62rem] tracking-wider text-soft">{value}</span>
+      <span className="label block text-[0.62rem] text-text max-lg:text-[0.7rem]">{label}</span>
+      <span className="mt-0.5 block truncate text-[0.62rem] tracking-wider text-soft max-lg:text-[0.7rem]">{value}</span>
     </>
   );
 }

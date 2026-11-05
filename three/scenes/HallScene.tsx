@@ -1,5 +1,6 @@
 "use client";
 
+import { useThree } from "@react-three/fiber";
 import { useMemo, useRef } from "react";
 import * as THREE from "three";
 import { getStage, prepareScene, sceneForPath, travel } from "@/lib/stage";
@@ -97,6 +98,8 @@ function Dais() {
 
 export function HallScene({ visible }: { visible: boolean }) {
   const hole = useRef<THREE.Group>(null);
+  // The screens need the open sides of a wide window. Elsewhere they'd sit behind the words.
+  const roomForScreens = useThree((s) => s.size.width >= 1200 && s.size.width / s.size.height > 1.4);
   const { world, basis, textures, shelf } = useMemo(() => {
     const world = makeWorld({
       lights: [
@@ -164,7 +167,7 @@ export function HallScene({ visible }: { visible: boolean }) {
         <GlowRing key={radius} radius={radius} position={HOLE} quaternion={rotateRing(basis)} tube={0.017} power={1.1} behindPanels />
       ))}
 
-      {PANELS.map((panel, index) => (
+      {roomForScreens && PANELS.map((panel, index) => (
         <HoloPanel
           key={panel.no}
           texture={textures[index]}

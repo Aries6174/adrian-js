@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import { Figure, Planet, Sky,
@@ -31,7 +31,7 @@ export const ABOUT_POSE: Pose = {
   fov: 38,
   parallax: [0.55, 0.16],
   hole: NEBULA_HEART,
-  portraitTarget: [-1, 4.8, -10],
+  portraitTarget: [-3.4, 4.8, -10],
 };
 
 const SKY: SkyOptions = {
@@ -328,7 +328,8 @@ function Tree({ world }: { world: World }) {
     };
   }, [world]);
 
-  useEffect(() => {
+  // Layout effects run before the next frame, so the shader never compiles without colours.
+  useLayoutEffect(() => {
     if (leaves.current) setup(leaves.current);
   }, [setup]);
 

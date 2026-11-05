@@ -8,7 +8,7 @@ import {
   deleteMessage,
   listMessages,
   newId,
-  readContent,
+  readSavedContent,
   saveContent,
   type StoredMessage,
 } from "@/lib/store";
@@ -33,7 +33,7 @@ export async function logout() {
 async function update(change: (content: SiteContent) => SiteContent): Promise<SaveResult> {
   if (!(await isAdmin())) return { error: "Please log in again." };
   try {
-    const content = change(await readContent());
+    const content = change(await readSavedContent());
     await saveContent(content);
     return { content };
   } catch (error) {

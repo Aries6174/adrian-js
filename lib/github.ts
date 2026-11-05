@@ -19,7 +19,8 @@ export type GithubStats = {
 };
 
 const HOUR = 3600_000;
-const FETCH_LIMIT = 8000;
+const RETRY = 300_000;
+const FETCH_LIMIT = 5000;
 const SHOWN_LANGUAGES = 7;
 
 const headers = { "User-Agent": "adrian-js-portfolio" };
@@ -120,10 +121,22 @@ async function refresh(handle: string, key: string, previous: GithubStats | null
     busiest: days.busiest,
     repos: repos?.repos ?? 0,
     languages: repos?.languages ?? [],
-    fetchedAt: complete ? Date.now() : Date.now() - HOUR + 300_000,
+    fetchedAt: complete ? Date.now() : Date.now() - HOUR + RETRY,
   };
   await writeValue(key, JSON.stringify(stats));
   return stats;
+}
+
+const refreshing = new Map<string, Promise<GithubStats | null>>();
+const failedAt = new Map<string, number>();
+
+function refreshOnce(handle: string, key: string, previous: GithubStats | null) {
+  let job = refreshing.get(key);
+  if (!job) {
+    job = refresh(handle, key, previous).finally(() => refreshing.delete(key));
+    refreshing.set(key, job);
+  }
+  return job;
 }
 
 /**
@@ -136,9 +149,15 @@ export async function loadGithub(handle: string): Promise<GithubStats | null> {
   try {
     const saved = await readValue(key);
     const stats = saved ? (JSON.parse(saved) as GithubStats) : null;
-    if (!stats) return await refresh(handle, key, null);
+    if (!stats) {
+      // With nothing saved a visitor has to wait, but only once while GitHub is failing.
+      if (Date.now() - (failedAt.get(key) ?? 0) < RETRY) return null;
+      const fresh = await refreshOnce(handle, key, null);
+      if (!fresh) failedAt.set(key, Date.now());
+      return fresh;
+    }
     if (Date.now() - stats.fetchedAt > HOUR) {
-      after(() => refresh(handle, key, stats).catch((error) => console.error("Could not save GitHub progress.", error)));
+      after(() => refreshOnce(handle, key, stats).catch((error) => console.error("Could not save GitHub progress.", error)));
     }
     return stats;
   } catch (error) {

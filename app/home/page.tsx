@@ -26,7 +26,7 @@ const infoCards = [
 async function FeaturedProjects() {
   const { projects } = await loadContent();
   return (
-    <div className="grid gap-3 md:grid-cols-3 lg:gap-4">
+    <div className="grid gap-3 lg:grid-cols-3 lg:gap-4">
       {inDisplayOrder(projects).slice(0, 3).map((project, index) => (
         <TravelLink
           key={project.id}
@@ -38,20 +38,20 @@ async function FeaturedProjects() {
             alt=""
             fill
             sizes="(max-width: 768px) 100vw, 33vw"
-            className={`${project.fit === "contain" ? "object-contain opacity-90" : "object-cover opacity-50"} transition-all duration-700 group-hover:scale-105 group-hover:opacity-80`}
-            style={{ objectPosition: project.imagePosition ?? "center" }}
+            className={`${project.fit === "contain" ? "object-contain opacity-60 p-3" : "object-cover opacity-40"} transition-all duration-700 group-hover:scale-105 group-hover:opacity-80`}
+            style={{ objectPosition: project.fit === "contain" ? "right center" : (project.imagePosition ?? "center") }}
           />
-          <span className="absolute inset-0 bg-gradient-to-r from-ink/95 via-ink/70 to-transparent" />
+          <span className="absolute inset-0 bg-gradient-to-r from-ink/95 via-ink/80 to-ink/20" />
           <span className="relative flex h-full flex-col justify-between p-3.5">
             <span className="label flex items-center gap-2 text-soft">
               0{index + 1} <span className="h-px w-4 bg-gold-line" />
             </span>
             <span>
-              <span className="display block text-[1.08rem] text-text">{project.headline[0]}</span>
+              <span className="display block truncate pr-12 text-[1.08rem] text-text max-sm:text-[0.88rem] max-sm:tracking-[0.12em]">{project.title}</span>
               <span className="mt-0.5 block text-[0.72rem] tracking-wider text-soft">{project.tagline}</span>
               <span className="mt-1.5 flex gap-1.5">
                 {project.tags.slice(0, 3).map((tag) => (
-                  <span key={tag} className="border border-gold-faint px-1.5 py-px text-[0.56rem] uppercase tracking-widest text-soft">
+                  <span key={tag} className="border border-gold-faint px-1.5 py-px text-[0.56rem] uppercase tracking-widest text-soft max-lg:text-[0.66rem] max-lg:tracking-wider">
                     {tag}
                   </span>
                 ))}
@@ -70,14 +70,14 @@ async function FeaturedProjects() {
 async function InfoCards() {
   const { home } = await loadContent();
   return (
-    <section className="hud-panel rise mt-3 grid divide-gold-faint md:grid-cols-3 md:divide-x lg:mt-4" style={stagger(6)}>
+    <section className="hud-panel rise mt-3 grid divide-gold-faint lg:mt-4 lg:grid-cols-3 lg:divide-x" style={stagger(6)}>
       {infoCards.map((card) => (
         <div key={card.key} className="flex gap-4 p-3 lg:px-5">
           <Icon name={card.icon} className="mt-0.5 size-8 shrink-0 text-gold" />
           <div className="min-w-0 flex-1">
             <h2 className="label text-text">{card.title}</h2>
             <p className="mt-1 text-[0.72rem] leading-[1.5] tracking-wide text-soft">{home[card.key]}</p>
-            <TravelLink href={card.href} className="label mt-0.5 flex items-center justify-end gap-2 text-[0.62rem] text-gold transition-colors hover:text-gold-bright">
+            <TravelLink href={card.href} className="label mt-0.5 flex items-center justify-end gap-2 text-[0.62rem] text-gold max-lg:py-2.5 max-lg:text-[0.7rem] transition-colors hover:text-gold-bright">
               {card.cta} <Arrow className="w-4" />
             </TravelLink>
           </div>
@@ -148,7 +148,7 @@ export default function HomePage() {
             </h2>
             <span className="hidden h-px w-14 bg-gold-line lg:block" />
             <p className="label hidden text-[0.6rem] text-muted lg:block">Selected records from the archive</p>
-            <TravelLink href="/projects" className="label ml-auto flex items-center gap-2 text-[0.64rem] text-soft transition-colors hover:text-gold">
+            <TravelLink href="/projects" className="label ml-auto flex items-center gap-2 text-[0.64rem] text-soft max-lg:py-2.5 transition-colors hover:text-gold">
               View all projects <Arrow className="w-4" />
             </TravelLink>
           </div>
@@ -161,7 +161,7 @@ export default function HomePage() {
         <Suspense fallback={<div className="mt-3 h-[6.1rem] lg:mt-4" />}>
           <InfoCards />
         </Suspense>
-        <VisitorCounter className="mt-4 lg:hidden" />
+        <VisitorCounter className="ml-auto mt-4 max-w-sm lg:hidden" />
       </div>
     </main>
   );

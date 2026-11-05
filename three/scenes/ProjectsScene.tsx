@@ -1,6 +1,6 @@
 "use client";
 
-import { useFrame } from "@react-three/fiber";
+import { useFrame, useThree } from "@react-three/fiber";
 import { useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import type { Project } from "@/lib/content";
@@ -43,7 +43,7 @@ export const PROJECTS_POSE: Pose = {
   fov: 38,
   parallax: [0.5, 0.14],
   hole: HOLE,
-  portraitTarget: [0.6, 3.8, -6],
+  portraitTarget: [-0.2, 3.8, -6],
 };
 
 const SKY: SkyOptions = {
@@ -65,7 +65,7 @@ const LAYOUT: {
   rotation: [number, number, number];
   width: number;
 }[] = [
-  { position: [-2.9, 6.25, -1.6], rotation: [0.03, 0.34, -0.08], width: 4 },
+  { position: [-2.9, 5.9, -1.6], rotation: [0.03, 0.34, -0.08], width: 4 },
   { position: [2.05, 5.55, -3.2], rotation: [0.02, -0.08, -0.05], width: 3.4 },
   { position: [-3.7, 3.1, -0.4], rotation: [0.02, 0.36, -0.06], width: 3.5 },
   { position: [1.2, 2.75, -1.8], rotation: [0.03, 0.05, -0.03], width: 3.7 },
@@ -197,6 +197,8 @@ function ProjectPanel({
 
 export function ProjectsScene({ visible }: { visible: boolean }) {
   const hole = useRef<THREE.Group>(null);
+  // Below this width the projects are picked from the strip of pictures on the page instead.
+  const roomForScreens = useThree((s) => s.size.width >= 1024);
   const projects = useStage((s) => s.projects);
   const selectedId = useStage((s) => s.projectId);
   const scroll = useStage((s) => s.projectScroll);
@@ -289,7 +291,7 @@ export function ProjectsScene({ visible }: { visible: boolean }) {
       {list.map((project, index) => {
         const slot = index - start;
         // Panels one step outside the view stay ready, so they can glide in and out.
-        if (slot < -1 || slot > PROJECTS_IN_VIEW) return null;
+        if (!roomForScreens || slot < -1 || slot > PROJECTS_IN_VIEW) return null;
         return (
           <ProjectPanel
             key={project.id}

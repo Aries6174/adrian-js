@@ -564,6 +564,14 @@ body {
   background: #ffd591;
 }
 
+/* On phones the content scrolls under the header, so it needs its own backing. */
+@media (max-width: 1023px) {
+  .site-header {
+    background: linear-gradient(180deg, rgb(6 4 2 / 0.97) 82%, rgb(6 4 2 / 0));
+    padding-bottom: 0.7rem;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .rise,
   .slide-left,

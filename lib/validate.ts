@@ -25,10 +25,11 @@ function required(value: unknown, max: number, label: string) {
 
 function list(value: unknown, maxItems: number, maxLength: number) {
   if (!Array.isArray(value)) return [];
-  return value
+  const items = value
     .slice(0, maxItems)
     .map((item) => text(item, maxLength))
     .filter(Boolean);
+  return [...new Set(items)];
 }
 
 /** Only http and https, so a saved link can never run a script when clicked. */
@@ -72,7 +73,8 @@ export function cleanProject(input: Partial<Project>): Omit<Project, "id" | "cre
   const extra = (Array.isArray(input.gallery) ? input.gallery : [])
     .slice(1, 2)
     .filter(Boolean)
-    .map((file) => siteFile(file, "Second image"));
+    .map((file) => siteFile(file, "Second image"))
+    .filter((file) => file !== image);
   const headline = list(input.headline, 2, 60);
   const position = text(input.imagePosition, 30);
   const credit = text(input.credit, 200);

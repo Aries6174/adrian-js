@@ -23,7 +23,7 @@ export function VisitorCounter({ className = "" }: { className?: string }) {
   return (
     <div className={`visitor-counter ${className}`} data-visitors={stats.total}>
       <div className="flex items-baseline justify-between gap-2">
-        <p className="label text-[0.6rem] text-muted">Visitors · {VISIT_HOURS}h</p>
+        <p className="label text-[0.6rem] text-muted max-lg:text-[0.68rem]">Visitors · {VISIT_HOURS}h</p>
         <p className="display text-[0.95rem] tracking-[0.06em] text-gold">{stats.total.toLocaleString("en-US")}</p>
       </div>
       <div className="mt-1.5 flex h-6 items-end gap-px" aria-hidden>

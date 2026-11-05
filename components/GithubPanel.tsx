@@ -129,7 +129,7 @@ export function GithubProgress({ stats, handle }: { stats: GithubStats | null; h
           <p className="text-[0.72rem] tracking-wide text-soft">
             <span className="text-gold">{stats.total.toLocaleString("en-US")}</span> contributions in the last year
           </p>
-          <a href={profile} target="_blank" rel="noreferrer" className="label flex items-center gap-1.5 text-[0.6rem] text-soft transition-colors hover:text-gold">
+          <a href={profile} target="_blank" rel="noreferrer" className="label flex items-center gap-1.5 text-[0.6rem] text-soft transition-colors hover:text-gold max-lg:py-2.5">
             @{stats.handle} <External />
           </a>
         </div>

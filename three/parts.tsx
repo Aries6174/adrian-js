@@ -1148,6 +1148,8 @@ export function HoloPanel({
     [texture],
   );
 
+  useEffect(() => () => material.dispose(), [material]);
+
   useFrame((_, delta) => {
     const mesh = ref.current;
     if (!mesh) return;

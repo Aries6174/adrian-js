@@ -216,10 +216,10 @@ export function ProjectsView({ projects }: { projects: Project[] }) {
                 {`${pad(position + 1)} / ${pad(list.length)}`}
               </p>
               <div className="flex gap-4 text-soft">
-                <button type="button" aria-label="Previous project" onClick={() => step(-1)} className="cursor-pointer p-1 transition-colors hover:text-gold">
+                <button type="button" aria-label="Previous project" onClick={() => step(-1)} className="cursor-pointer p-1 max-lg:-my-2 max-lg:p-3 transition-colors hover:text-gold">
                   <Chevron direction="left" />
                 </button>
-                <button type="button" aria-label="Next project" onClick={() => step(1)} className="cursor-pointer p-1 transition-colors hover:text-gold">
+                <button type="button" aria-label="Next project" onClick={() => step(1)} className="cursor-pointer p-1 max-lg:-my-2 max-lg:p-3 transition-colors hover:text-gold">
                   <Chevron direction="right" />
                 </button>
               </div>

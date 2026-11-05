@@ -35,7 +35,7 @@ export function Header() {
       <TravelLink
         href="/"
         aria-label="ADRIAN.JS, back to the introduction"
-        className="display text-[1.25rem] text-gold"
+        className="display text-[1.25rem] text-gold max-lg:py-2"
       >
         Adrian.js
         <span className="caret">_</span>
@@ -49,7 +49,7 @@ export function Header() {
               key={item.href}
               href={item.href}
               aria-current={active ? "page" : undefined}
-              className={`label group relative flex gap-3 py-2 transition-colors hover:text-text ${
+              className={`label group relative flex gap-3 py-2 max-lg:py-2.5 transition-colors hover:text-text ${
                 active ? "text-text" : "text-soft"
               }`}
             >

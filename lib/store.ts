@@ -211,12 +211,17 @@ export function newId() {
   return randomBytes(12).toString("hex");
 }
 
+/** For saving: a failed read throws, so defaults can never be written over real edits. */
+export async function readSavedContent(): Promise<SiteContent> {
+  const json = await (await driver()).readContent();
+  if (!json) return DEFAULT_CONTENT;
+  return { ...DEFAULT_CONTENT, ...(JSON.parse(json) as Partial<SiteContent>) };
+}
+
 /** The public site keeps working from the built-in content if the database is unreachable. */
 export async function readContent(): Promise<SiteContent> {
   try {
-    const json = await (await driver()).readContent();
-    if (!json) return DEFAULT_CONTENT;
-    return { ...DEFAULT_CONTENT, ...(JSON.parse(json) as Partial<SiteContent>) };
+    return await readSavedContent();
   } catch (error) {
     console.error("Could not read site content, using the defaults.", error);
     return DEFAULT_CONTENT;
