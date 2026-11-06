@@ -4,7 +4,7 @@ import { useFrame, useThree } from "@react-three/fiber";
 import { useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import type { Project } from "@/lib/content";
-import { getStage, PROJECTS_IN_VIEW, setStage, useStage } from "@/lib/stage";
+import { getStage, PROJECTS_IN_VIEW, setStage, slotOf, useStage, viewStart } from "@/lib/stage";
 import {
   Asteroids,
   BlackHole,
@@ -168,6 +168,9 @@ function ProjectPanel({
     const node = group.current;
     if (!node) return;
     const state = motion.current;
+    // When the loop wraps, a hidden panel moves from one end of the row to the other.
+    // It jumps straight there, so it never sweeps across the panels in view.
+    if (Math.abs(slot - state.t) > 2) state.t = slot;
     state.t += (slot - state.t) * (1 - Math.exp(-delta * 6));
     const inView = slot > -0.5 && slot < PROJECTS_IN_VIEW - 0.5;
     fade.current += ((inView ? 1 : 0) - fade.current) * (1 - Math.exp(-delta * 8));
@@ -207,7 +210,7 @@ export function ProjectsScene({ visible }: { visible: boolean }) {
     (project) => filter === "all" || project.categories.some((category) => category === filter),
   );
   const activeId = selectedId && list.some((project) => project.id === selectedId) ? selectedId : list[0]?.id;
-  const start = Math.min(scroll, Math.max(0, list.length - PROJECTS_IN_VIEW));
+  const start = viewStart(scroll, list.length);
 
   const { world, basis } = useMemo(() => {
     const world = makeWorld({
@@ -289,7 +292,7 @@ export function ProjectsScene({ visible }: { visible: boolean }) {
             <Console world={world} position={[-5.4, 0, 8.3]} rotationY={0.55} scale={0.72} seed={13} />
 
       {list.map((project, index) => {
-        const slot = index - start;
+        const slot = slotOf(index, start, list.length);
         // Panels one step outside the view stay ready, so they can glide in and out.
         if (!roomForScreens || slot < -1 || slot > PROJECTS_IN_VIEW) return null;
         return (

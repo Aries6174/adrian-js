@@ -12,6 +12,21 @@ export const SCENE_FADE = 1400;
 /** How many project panels fit in the 3D scene at once. */
 export const PROJECTS_IN_VIEW = 5;
 
+/** The carousel loops, so the first panel in view wraps around the list. */
+export function viewStart(scroll: number, count: number) {
+  if (count <= PROJECTS_IN_VIEW) return 0;
+  return ((scroll % count) + count) % count;
+}
+
+/**
+ * Where a project sits in the 3D row: 0 to PROJECTS_IN_VIEW - 1 is on screen.
+ * The project just before the view waits at -1, so it can glide in from the left.
+ */
+export function slotOf(index: number, start: number, count: number) {
+  const ahead = (((index - start) % count) + count) % count;
+  return ahead === count - 1 && count > PROJECTS_IN_VIEW + 1 ? -1 : ahead;
+}
+
 /** After this, a page that hasn't reported in is shown anyway. */
 const PAGE_WAIT = 3500;
 /** After this, a world that isn't prepared is shown anyway. */

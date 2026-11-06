@@ -4,7 +4,7 @@ import Image from "next/image";
 import type { CSSProperties } from "react";
 import { useEffect, useRef, useState } from "react";
 import { type Project, projectFilters } from "@/lib/content";
-import { getStage, PROJECTS_IN_VIEW, setStage, useStage } from "@/lib/stage";
+import { getStage, PROJECTS_IN_VIEW, setStage, useStage, viewStart } from "@/lib/stage";
 import { External, Eyebrow, PageTitle, stagger } from "./ui";
 
 function matching(projects: Project[], filter: string) {
@@ -25,6 +25,11 @@ function pad(value: number) {
   return String(value).padStart(2, "0");
 }
 
+/** "3-6", or just "6" when the range is a single project. */
+function range(from: number, to: number) {
+  return from === to ? String(from) : `${from}-${to}`;
+}
+
 /** Position in the build-in sequence, which sets how long a piece waits to appear. */
 function order(index: number) {
   return { "--i": index } as CSSProperties;
@@ -42,24 +47,32 @@ export function ProjectsView({ projects }: { projects: Project[] }) {
   const list = matching(projects, filter);
   const position = Math.max(0, list.findIndex((item) => item.id === selectedId));
   const project = list[position];
-  const maxScroll = Math.max(0, list.length - PROJECTS_IN_VIEW);
-  const canScroll = maxScroll > 0;
-  const start = Math.min(scroll, maxScroll);
+  const count = list.length;
+  const canScroll = count > PROJECTS_IN_VIEW;
+  // The view loops: after the last project it carries on from the first.
+  const start = viewStart(scroll, count);
+  const end = (start + PROJECTS_IN_VIEW - 1) % count;
 
-  // Selecting a project off to one side brings it into the 3D view.
+  // Selecting a project off to one side brings it into the 3D view,
+  // turning the loop whichever way is shorter.
   const select = (index: number) => {
     const item = list[index];
     if (!item) return;
     let next = start;
-    if (index < next) next = index;
-    if (index >= next + PROJECTS_IN_VIEW) next = index - PROJECTS_IN_VIEW + 1;
-    setStage({ projectId: item.id, projectScroll: next });
+    if (canScroll) {
+      const ahead = (index - start + count) % count;
+      if (ahead >= PROJECTS_IN_VIEW) {
+        const forward = ahead - PROJECTS_IN_VIEW + 1;
+        next = forward <= count - ahead ? start + forward : index;
+      }
+    }
+    setStage({ projectId: item.id, projectScroll: viewStart(next, count) });
   };
 
-  const step = (by: number) => select((position + by + list.length) % list.length);
+  const step = (by: number) => select((position + by + count) % count);
 
   const moveView = (by: number) => {
-    setStage({ projectScroll: Math.max(0, Math.min(maxScroll, start + by)) });
+    setStage({ projectScroll: viewStart(start + by, count) });
   };
 
   const chooseFilter = (id: string) => {
@@ -105,12 +118,12 @@ export function ProjectsView({ projects }: { projects: Project[] }) {
       if (Math.abs(built) < 60) return;
       const by = Math.sign(built);
       built = 0;
-      const current = getStage().projectScroll;
-      setStage({ projectScroll: Math.max(0, Math.min(maxScroll, current + by)) });
+      const current = viewStart(getStage().projectScroll, count);
+      setStage({ projectScroll: viewStart(current + by, count) });
     };
     window.addEventListener("wheel", onWheel, { passive: true });
     return () => window.removeEventListener("wheel", onWheel);
-  }, [canScroll, maxScroll]);
+  }, [canScroll, count]);
 
   return (
     <main className="page px-[var(--gutter)] pb-10 pt-32 lg:h-dvh lg:p-0">
@@ -165,16 +178,18 @@ export function ProjectsView({ projects }: { projects: Project[] }) {
         <div className="mb-1.5 flex items-center justify-between px-1">
           <p className="label text-[0.6rem] text-soft">
             {canScroll
-              ? `Showing ${start + 1}-${Math.min(start + PROJECTS_IN_VIEW, list.length)} of ${list.length}`
+              ? end > start
+                ? `Showing ${range(start + 1, end + 1)} of ${count}`
+                : `Showing ${range(start + 1, count)} and ${range(1, end + 1)} of ${count}`
               : `${list.length} ${list.length === 1 ? "project" : "projects"}`}
             <span className="ml-3 text-muted max-lg:hidden">Scroll to browse</span>
           </p>
           {canScroll && (
             <div className="flex gap-3 text-soft max-lg:hidden">
-              <button type="button" aria-label="Show earlier projects" disabled={start === 0} onClick={() => moveView(-1)} className="cursor-pointer p-1 transition-colors hover:text-gold disabled:cursor-default disabled:opacity-30">
+              <button type="button" aria-label="Show earlier projects" onClick={() => moveView(-1)} className="cursor-pointer p-1 transition-colors hover:text-gold">
                 <Chevron direction="left" />
               </button>
-              <button type="button" aria-label="Show later projects" disabled={start === maxScroll} onClick={() => moveView(1)} className="cursor-pointer p-1 transition-colors hover:text-gold disabled:cursor-default disabled:opacity-30">
+              <button type="button" aria-label="Show later projects" onClick={() => moveView(1)} className="cursor-pointer p-1 transition-colors hover:text-gold">
                 <Chevron direction="right" />
               </button>
             </div>
