@@ -1,5 +1,6 @@
 import type { CSSProperties } from "react";
 import type { GithubDay, GithubStats } from "@/lib/github";
+import { CountUp } from "./CountUp";
 import { External } from "./ui";
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -25,7 +26,9 @@ function describe(day: GithubDay) {
 function Stat({ value, label }: { value: string; label: string }) {
   return (
     <div className="border-l border-gold-faint pl-3">
-      <p className="display text-[1rem] leading-tight tracking-[0.08em] text-gold">{value}</p>
+      <p className="display text-[1rem] leading-tight tracking-[0.08em] text-gold">
+        <CountUp text={value} />
+      </p>
       <p className="mt-0.5 text-[0.62rem] leading-tight tracking-wide text-muted">{label}</p>
     </div>
   );
@@ -46,7 +49,7 @@ function Calendar({ days }: { days: GithubDay[] }) {
   return (
     <div className="overflow-x-auto pb-1">
       <div
-        className="grid min-w-[34rem] gap-[2px]"
+        className="relative grid min-w-[34rem] gap-[2px]"
         style={{ gridTemplateColumns: `1.6rem repeat(${weeks}, minmax(0, 1fr))` }}
         role="img"
         aria-label="Contributions per day over the last year"
@@ -72,6 +75,10 @@ function Calendar({ days }: { days: GithubDay[] }) {
             style={{ gridColumn: week + 2, gridRow: row + 2, "--week": week } as CSSProperties}
           />
         ))}
+        {/* A soft light that keeps passing over the graph. */}
+        <span aria-hidden className="graph-scan-track">
+          <span className="graph-scan" />
+        </span>
       </div>
     </div>
   );
@@ -105,6 +112,7 @@ export function GithubProgress({ stats, handle }: { stats: GithubStats | null; h
             <span className="text-gold">{stats.total.toLocaleString("en-US")}</span> contributions in the last year
           </p>
           <a href={profile} target="_blank" rel="noreferrer" className="label flex items-center gap-1.5 text-[0.6rem] text-soft transition-colors hover:text-gold max-lg:py-2.5">
+            <span aria-hidden className="live-dot" />
             @{stats.handle} <External />
           </a>
         </div>

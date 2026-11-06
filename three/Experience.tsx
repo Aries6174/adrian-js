@@ -76,9 +76,10 @@ function Director() {
       eye.x += damped.x * pose.parallax[0] + Math.sin(t * 0.13) * pose.parallax[0] * 0.25;
       eye.y += -damped.y * pose.parallax[1] + Math.sin(t * 0.17) * pose.parallax[1] * 0.2;
     }
-    if (leaving) eye.lerp(hole, warp * 0.03);
+    // A slow, small lean toward the black hole. Big swings and zooms here made people queasy.
+    if (leaving) eye.lerp(hole, warp * 0.02);
     lookAt.set(...target);
-    if (leaving) lookAt.lerp(hole, warp * 0.12);
+    if (leaving) lookAt.lerp(hole, warp * 0.04);
 
     camera.position.copy(eye);
     camera.lookAt(lookAt);
@@ -86,15 +87,16 @@ function Director() {
     // Wider screens keep the vertical framing, narrow ones keep the horizontal.
     const narrow = Math.min(1.75, Math.max(1, 16 / 9 / aspect));
     const halfFov = Math.tan(THREE.MathUtils.degToRad(pose.fov / 2)) * narrow;
-    const warpZoom = leaving ? 1 - warp * 0.1 : 1 + warp * 0.08;
+    const warpZoom = leaving ? 1 - warp * 0.04 : 1 + warp * 0.03;
     camera.fov = THREE.MathUtils.radToDeg(Math.atan(halfFov)) * 2 * warpZoom;
     camera.updateProjectionMatrix();
     camera.updateMatrixWorld();
 
+    // Where the black hole sits on screen: the next world grows out from there.
     const projected = hole.clone().project(camera);
     warpCenter.set(
-      THREE.MathUtils.clamp(projected.x * 0.5 + 0.5, 0.1, 0.9),
-      THREE.MathUtils.clamp(projected.y * 0.5 + 0.5, 0.1, 0.9),
+      THREE.MathUtils.clamp(projected.x * 0.5 + 0.5, 0.15, 0.85),
+      THREE.MathUtils.clamp(projected.y * 0.5 + 0.5, 0.15, 0.85),
     );
     state.scene.background = null;
   }, -1);
@@ -110,6 +112,7 @@ const GRADE = {
     uFade: { value: 0 },
     uWarp: { value: 0 },
     uCenter: { value: warpCenter },
+    uPlain: { value: 0 },
     uAspect: { value: 1.78 },
     uTexel: { value: new THREE.Vector2(1 / 1600, 1 / 900) },
     uSharpen: { value: 0.35 },
@@ -126,20 +129,12 @@ const GRADE = {
     uniform float uFade;
     uniform float uWarp;
     uniform vec2 uCenter;
+    uniform float uPlain;
     uniform float uAspect;
     uniform float uTime;
     varying vec2 vUv;
     ${NOISE_GLSL}
     vec3 aces(vec3 x){ return clamp((x*(2.51*x+.03))/(x*(2.43*x+.59)+.14),0.,1.); }
-    // A short radial smear. It stays well away from the centre so it never averages down
-    // into the hole's black shadow, which keeps overall brightness steady.
-    vec3 smeared(sampler2D map,vec2 d,float pull){
-      vec3 c=vec3(0.);
-      for(int i=0;i<10;i++){
-        c+=textureLod(map,uCenter+d*(1.-pull*float(i)/9.),0.).rgb;
-      }
-      return c/10.;
-    }
     // Pushes each pixel away from the average of its neighbours, which firms up soft edges.
     // The limit stops bright text from growing dark outlines.
     vec3 sharpened(sampler2D map){
@@ -149,26 +144,34 @@ const GRADE = {
       return max(c+clamp(c-around,-.2,.2)*uSharpen*2.,0.);
     }
     void main(){
-      vec2 d=vUv-uCenter;
-      float pull=uWarp*.26;
-      vec3 col=uWarp>.002?smeared(tDiffuse,d,pull):sharpened(tDiffuse);
+      vec3 col=sharpened(tDiffuse);
+      // Changing page: the next world grows out of the black hole with an uneven, stardust
+      // edge and a soft gold rim, while the last saved frame of the old world gives way.
       if(uFade>.002){
-        col=mix(col,smeared(tPrevious,d,pull),uFade);
+        vec3 before=texture2D(tPrevious,vUv).rgb;
+        if(uPlain>.5){
+          col=mix(col,before,uFade);
+        }else{
+          vec2 p=vUv*vec2(uAspect,1.);
+          float dust=vnoise(p*5.)*.6+vnoise(p*15.+7.)*.4;
+          // Distance from the hole, roughened by the dust, so the edge is not a perfect circle.
+          float field=length((vUv-uCenter)*vec2(uAspect,1.))+dust*.5;
+          float front=(1.-uFade)*2.6-.15;
+          float shown=smoothstep(front+.07,front-.07,field);
+          col=mix(before,col,shown);
+          float rim=exp(-pow((field-front)/.045,2.));
+          col+=vec3(1.,.68,.32)*rim*.28*min(1.,uFade*4.);
+        }
       }
-      if(uWarp>.002){
-        vec2 ad=d*vec2(uAspect,1.);
-        float a=atan(ad.y,ad.x);
-        float streak=pow(vnoise(vec2(a*34.,uTime*.7)),7.);
-        col+=vec3(1.,.66,.3)*streak*smoothstep(.15,.6,length(ad))*uWarp*uWarp*.3;
-      }
-      col*=1.-uWarp*.42;
+      // Leaving dims the world a little while the next page loads.
+      col*=1.-uWarp*.25;
       // Warm split-tone with deep blacks, like the reference renders.
       col=aces(col*1.08);
       float luma=dot(col,vec3(.2126,.7152,.0722));
       col=mix(col,col*vec3(1.05,.985,.9),smoothstep(.05,.7,luma));
       col=pow(col,vec3(1.06));
       vec2 v=vUv-.5;
-      col*=1.-dot(v,v)*.72;
+      col*=1.-dot(v,v)*(.72+uWarp*.5);
       col=pow(clamp(col,0.,1.),vec3(1./2.2));
       col+=(hash21(vUv*vec2(913.,711.)+fract(uTime)*37.)-.5)*.018;
       gl_FragColor=vec4(col,1.);
@@ -343,6 +346,7 @@ function PostFX() {
     r.tick += 1;
     snapshot.enabled = fade === 0 && (warpIsLeaving() || r.tick % 8 === 0);
     grade.uniforms.uFade.value = fade;
+    grade.uniforms.uPlain.value = stillCamera.matches ? 1 : 0;
     grade.uniforms.uWarp.value = warp;
     composer.render(delta);
 
@@ -445,6 +449,11 @@ export default memo(function Experience() {
         dpr={CANVAS_DPR}
         camera={{ fov: 38, near: 0.1, far: 3000, position: [0, 2, 20] }}
         gl={{ antialias: false, alpha: false, powerPreference: "high-performance", stencil: false }}
+        onCreated={({ gl }) => {
+          // Checking each shader for errors makes the browser stop and wait for it to finish
+          // compiling, which froze the page for up to a second. Development still checks.
+          gl.debug.checkShaderErrors = process.env.NODE_ENV !== "production";
+        }}
       >
         <color attach="background" args={["#050403"]} />
         <Director />

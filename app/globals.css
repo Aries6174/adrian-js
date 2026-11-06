@@ -536,8 +536,10 @@ body {
 .language-bar {
   background: repeating-linear-gradient(90deg, var(--gold) 0 5px, transparent 5px 7px);
   transform-origin: left;
-  animation: language-grow 800ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
-  animation-delay: calc(var(--i, 0) * 70ms + 500ms);
+  animation:
+    language-grow 800ms cubic-bezier(0.2, 0.7, 0.2, 1) both,
+    bar-glow 6s ease-in-out infinite;
+  animation-delay: calc(var(--i, 0) * 70ms + 500ms), calc(var(--i, 0) * 350ms + 2.5s);
 }
 .contribution-day,
 .contribution-swatch {
@@ -562,6 +564,80 @@ body {
 [data-level="4"].contribution-day,
 [data-level="4"].contribution-swatch {
   background: #ffd591;
+}
+
+/* About: small signs of life on the Who am I and GitHub panels. */
+@keyframes shimmer {
+  0%,
+  62% {
+    background-position: 120% 0;
+  }
+  100% {
+    background-position: -20% 0;
+  }
+}
+.shimmer {
+  background: linear-gradient(100deg, var(--gold) 42%, #fff1d2 50%, var(--gold) 58%) no-repeat;
+  background-color: var(--gold);
+  background-size: 250% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  /* A text shadow would paint over the clipped gradient, so the dark halo is a filter instead. */
+  text-shadow: none;
+  filter: drop-shadow(0 0 0.5rem rgb(5 4 3 / 0.85));
+  animation: shimmer 7s ease-in-out 1.5s infinite;
+}
+.artifact-box {
+  background: radial-gradient(circle at 50% 50%, rgb(236 182 95 / 0.12), transparent 65%), rgb(5 4 3 / 0.35);
+}
+@keyframes graph-scan {
+  from {
+    transform: translateX(-3rem);
+  }
+  to {
+    transform: translateX(100cqw);
+  }
+}
+.graph-scan-track {
+  position: absolute;
+  inset: 0 0 0 1.6rem;
+  overflow: hidden;
+  pointer-events: none;
+  container-type: inline-size;
+}
+.graph-scan {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 3rem;
+  background: linear-gradient(90deg, transparent, rgb(255 214 150 / 0.22), transparent);
+  mix-blend-mode: screen;
+  transform: translateX(-3rem);
+  animation: graph-scan 6s cubic-bezier(0.45, 0, 0.55, 1) 2.2s infinite;
+}
+@keyframes bar-glow {
+  0%,
+  100% {
+    filter: none;
+  }
+  50% {
+    filter: brightness(1.25) drop-shadow(0 0 0.2rem rgb(255 200 120 / 0.45));
+  }
+}
+@keyframes live-dot {
+  0% {
+    box-shadow: 0 0 0 0 rgb(255 200 115 / 0.7);
+  }
+  100% {
+    box-shadow: 0 0 0 0.45rem rgb(255 200 115 / 0);
+  }
+}
+.live-dot {
+  width: 0.4rem;
+  height: 0.4rem;
+  border-radius: 9999px;
+  background: var(--gold-bright);
+  animation: live-dot 2s ease-out infinite;
 }
 
 /* Home's bottom cards: a light that runs along the top edge, and faint moving motifs. */
@@ -608,12 +684,24 @@ body {
   background-size: 40% 100%;
   animation: info-sweep 5.6s linear infinite;
 }
+.motif-frame {
+  border: 1px solid var(--gold-faint);
+  background: radial-gradient(circle at 60% 50%, rgb(236 182 95 / 0.1), transparent 70%), rgb(5 4 3 / 0.35);
+  padding: 0.3rem;
+  transition:
+    border-color 400ms ease,
+    box-shadow 400ms ease;
+}
+.info-card:hover .motif-frame {
+  border-color: var(--gold-line);
+  box-shadow: 0 0 0.8rem rgb(236 182 95 / 0.18);
+}
 .card-motif {
-  opacity: 0.32;
+  opacity: 0.7;
   transition: opacity 500ms ease;
 }
 .info-card:hover .card-motif {
-  opacity: 0.7;
+  opacity: 1;
 }
 /* The dashes move along the orbit; 70 is ten whole dash lengths, so the loop has no jump. */
 .motif-flow {
@@ -651,6 +739,9 @@ body {
   .language-bar,
   .contribution-day,
   .info-sweep,
+  .shimmer,
+  .graph-scan,
+  .live-dot,
   .motif-flow,
   .motif-pulse,
   .motif-blink {

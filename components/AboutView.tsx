@@ -1,11 +1,15 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import Image from "next/image";
 import type { CSSProperties, ReactNode } from "react";
 import { useEffect, useRef } from "react";
 import { type About, aboutSections, SKILLS_SECTION } from "@/lib/content";
 import { setStage, useStage } from "@/lib/stage";
 import { Arrow, Eyebrow, FootNote, Icon, PageTitle, SectionLabel, stagger } from "./ui";
+
+// three.js only runs in the browser, so the 3D object loads there and not on the server.
+const AboutArtifact = dynamic(() => import("./AboutArtifact"), { ssr: false });
 
 function Panel({
   id,
@@ -29,6 +33,7 @@ function Panel({
 
 export function AboutView({ about, github }: { about: About; github: ReactNode }) {
   const section = useStage((s) => s.aboutSection);
+  const webgl = useStage((s) => s.webgl);
   const firstRun = useRef(true);
   const sectionId = aboutSections[section].id;
 
@@ -75,22 +80,22 @@ export function AboutView({ about, github }: { about: About; github: ReactNode }
       <div
         className="mt-[34dvh] flex flex-col gap-3 lg:absolute lg:bottom-[2rem] lg:right-[var(--gutter)] lg:top-[5.5rem] lg:mt-0 lg:w-[43rem] lg:gap-3 lg:overflow-y-auto"
       >
-        <Panel id="github" active={section === 0} step={2} className="p-4">
-          <SectionLabel no="01">GitHub progress</SectionLabel>
-          {github}
-        </Panel>
-
-        <Panel id="intro" active={section === 1} step={3} className="grid gap-5 p-4 md:grid-cols-[1fr_16.5rem]">
+        <Panel id="intro" active={section === 0} step={2} className="grid gap-5 p-4 md:grid-cols-[1fr_16.5rem]">
+          <span aria-hidden className="info-sweep" />
           <div>
-            <SectionLabel no="02">Who am I</SectionLabel>
-            <h2 className="display mt-2.5 text-[1.25rem] leading-[1.28] text-gold">
+            <SectionLabel no="01">Who am I</SectionLabel>
+            <h2 className="display shimmer mt-2.5 text-[1.25rem] leading-[1.28] text-gold">
               {about.heading}
             </h2>
             <p className="copy mt-2">{about.body}</p>
           </div>
           <div className="border-gold-faint md:border-l md:pl-5">
-            <div className="relative aspect-[16/7] overflow-hidden border border-gold-faint">
-              <Image src={about.image} alt={about.imageAlt} fill sizes="(max-width: 768px) 100vw, 17vw" className="object-cover" />
+            <div className="artifact-box relative aspect-[16/9] overflow-hidden border border-gold-faint">
+              {webgl ? (
+                <AboutArtifact label={about.imageAlt} />
+              ) : (
+                <Image src={about.image} alt={about.imageAlt} fill sizes="(max-width: 768px) 100vw, 17vw" className="object-cover" />
+              )}
             </div>
             <div className="mt-3 flex items-end justify-between">
               <p className="label text-[0.66rem] leading-[1.5] text-soft">
@@ -103,6 +108,12 @@ export function AboutView({ about, github }: { about: About; github: ReactNode }
               <Arrow className="w-5 text-gold" />
             </div>
           </div>
+        </Panel>
+
+        <Panel id="github" active={section === 1} step={3} className="p-4">
+          <span aria-hidden className="info-sweep" style={{ animationDelay: "2.8s" }} />
+          <SectionLabel no="02">GitHub progress</SectionLabel>
+          {github}
         </Panel>
 
         <div className="grid gap-3 md:grid-cols-2">

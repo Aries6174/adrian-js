@@ -67,13 +67,13 @@ async function FeaturedProjects() {
   );
 }
 
-/** A faint moving picture behind each card: an orbit, a lattice of skills, a signal. */
+/** A small moving picture for each card: an orbit, a lattice of skills, a signal. */
 function CardMotif({ kind }: { kind: (typeof infoCards)[number]["key"] }) {
   return (
     <svg
       viewBox="40 12 120 76"
       aria-hidden
-      className="card-motif pointer-events-none absolute right-3 max-sm:hidden top-2 h-[3.8rem] w-24 text-gold"
+      className="card-motif h-full w-full text-gold"
       fill="none"
       stroke="currentColor"
     >
@@ -137,19 +137,24 @@ async function InfoCards() {
   return (
     <section className="hud-panel rise mt-3 grid divide-gold-faint lg:mt-4 lg:grid-cols-3 lg:divide-x" style={stagger(6)}>
       {infoCards.map((card, index) => (
+        // Icon, then words with the link pinned to the bottom so all three cards line up,
+        // then the moving picture in its own small screen. The screen is left out where the
+        // card is too narrow for it: phones, and three-across on smaller laptops.
         <div key={card.key} className="info-card group relative flex gap-4 overflow-hidden p-3 lg:px-5">
           <span aria-hidden className="info-sweep" style={{ animationDelay: `${index * 1.4}s` }} />
-          <CardMotif kind={card.key} />
           <Icon name={card.icon} className="relative mt-0.5 size-8 shrink-0 text-gold transition-transform duration-300 group-hover:-translate-y-0.5" />
-          <div className="relative min-w-0 flex-1 sm:max-lg:pr-28">
+          <div className="relative flex min-w-0 flex-1 flex-col">
             <h2 className="label text-text">
               <span className="mr-2 text-muted">0{index + 1}</span>
               {card.title}
             </h2>
-            <p className="mt-1 text-[0.72rem] leading-[1.5] tracking-wide text-soft lg:pr-24">{home[card.key]}</p>
-            <TravelLink href={card.href} className="label mt-0.5 flex items-center justify-end gap-2 text-[0.62rem] text-gold max-lg:py-2.5 max-lg:text-[0.7rem] transition-colors hover:text-gold-bright">
+            <p className="mt-1 text-[0.72rem] leading-[1.5] tracking-wide text-soft">{home[card.key]}</p>
+            <TravelLink href={card.href} className="label mt-auto flex w-max items-center gap-2 pt-2 text-[0.62rem] text-gold max-lg:py-2.5 max-lg:text-[0.7rem] transition-colors hover:text-gold-bright">
               {card.cta} <Arrow className="w-4" />
             </TravelLink>
+          </div>
+          <div aria-hidden className="motif-frame relative hidden h-[4.2rem] w-[6.6rem] shrink-0 self-center sm:block lg:hidden xl:block">
+            <CardMotif kind={card.key} />
           </div>
         </div>
       ))}

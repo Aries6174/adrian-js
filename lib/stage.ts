@@ -5,10 +5,10 @@ import { type Project, SKILLS_SECTION } from "./content";
 
 export type SceneId = "intro" | "hall" | "projects" | "about" | "contact";
 
-export const WARP_IN = 600;
-export const WARP_OUT = 900;
+export const WARP_IN = 650;
+export const WARP_OUT = 1100;
 /** How long the previous world lingers as it dissolves into the next. */
-export const SCENE_FADE = 800;
+export const SCENE_FADE = 1400;
 /** How many project panels fit in the 3D scene at once. */
 export const PROJECTS_IN_VIEW = 5;
 

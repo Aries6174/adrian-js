@@ -127,8 +127,8 @@ export const projectFilters: {
 ];
 
 export const aboutSections = [
-  { id: "github", label: "GitHub" },
   { id: "intro", label: "Intro" },
+  { id: "github", label: "GitHub" },
   { id: "background", label: "Background" },
   { id: "skills", label: "Skills" },
   { id: "journey", label: "Journey" },
