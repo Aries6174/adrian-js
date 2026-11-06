@@ -136,19 +136,202 @@ function fitFont(
   return size;
 }
 
-/** Navigation panels in the Archive hall: a number and one big word. */
-export function navPanelTexture(no: string, title: string, seed: number) {
+export type PanelEmblem = "projects" | "about" | "skills" | "contact";
+
+const BRIGHT = "#ffe1a8";
+
+/** Strokes in gold with a soft glow, the way lines are drawn on the hall's screens. */
+function glowing(ctx: CanvasRenderingContext2D, width: number, alpha: number, draw: () => void) {
+  ctx.save();
+  ctx.strokeStyle = `rgba(240,187,102,${alpha})`;
+  ctx.lineWidth = width;
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+  ctx.shadowColor = "rgba(255,190,105,0.8)";
+  ctx.shadowBlur = alpha > 0.6 ? 14 : 0;
+  draw();
+  ctx.restore();
+}
+
+/** Stacked project screens, the front one showing a lit mountain scene. */
+function projectsEmblem(ctx: CanvasRenderingContext2D) {
+  const screens: [number, number, number][] = [
+    [300, 262, 0.28],
+    [345, 292, 0.5],
+    [390, 322, 1],
+  ];
+  screens.forEach(([x, y, alpha], index) => {
+    ctx.fillStyle = "#0b0805";
+    ctx.fillRect(x, y, 210, 132);
+    glowing(ctx, index === 2 ? 5 : 4, alpha, () => {
+      ctx.strokeRect(x, y, 210, 132);
+      ctx.beginPath();
+      ctx.moveTo(x, y + 26);
+      ctx.lineTo(x + 210, y + 26);
+      ctx.stroke();
+    });
+    ctx.fillStyle = `rgba(240,187,102,${alpha})`;
+    for (let i = 0; i < 3; i++) ctx.fillRect(x + 12 + i * 16, y + 10, 7, 7);
+  });
+  const [x, y] = [390, 322];
+  glowing(ctx, 5, 1, () => {
+    ctx.beginPath();
+    ctx.moveTo(x + 14, y + 118);
+    ctx.lineTo(x + 70, y + 64);
+    ctx.lineTo(x + 104, y + 92);
+    ctx.lineTo(x + 140, y + 56);
+    ctx.lineTo(x + 196, y + 118);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(x + 160, y + 52, 11, 0, Math.PI * 2);
+    ctx.stroke();
+  });
+}
+
+/** A portrait in a ring, with something in orbit around it. */
+function aboutEmblem(ctx: CanvasRenderingContext2D) {
+  const cx = 430;
+  const cy = 362;
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(cx, cy, 86, 0, Math.PI * 2);
+  ctx.fillStyle = "#0b0805";
+  ctx.fill();
+  ctx.clip();
+  ctx.fillStyle = "rgba(240,187,102,0.9)";
+  ctx.beginPath();
+  ctx.arc(cx, cy - 22, 27, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.ellipse(cx, cy + 70, 62, 58, 0, Math.PI, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+  glowing(ctx, 5, 1, () => {
+    ctx.beginPath();
+    ctx.arc(cx, cy, 86, 0, Math.PI * 2);
+    ctx.stroke();
+  });
+  glowing(ctx, 3, 0.55, () => {
+    ctx.beginPath();
+    ctx.ellipse(cx, cy, 150, 36, -0.28, 0.15, Math.PI * 2 - 0.15);
+    ctx.stroke();
+  });
+  ctx.fillStyle = BRIGHT;
+  ctx.beginPath();
+  ctx.arc(cx + 140, cy - 46, 8, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+/** Code brackets over a lattice of skill nodes, some of them lit and wired together. */
+function skillsEmblem(ctx: CanvasRenderingContext2D) {
+  const size = 22;
+  const lit = new Set(["1,1", "3,0", "4,2", "6,1", "2,3", "5,3"]);
+  const centres: Record<string, [number, number]> = {};
+  for (let row = 0; row < 5; row++) {
+    for (let col = 0; col < 8; col++) {
+      const x = 270 + col * size * 1.75 + (row % 2) * size * 0.87;
+      const y = 268 + row * size * 1.5;
+      centres[`${col},${row}`] = [x, y];
+      const on = lit.has(`${col},${row}`);
+      ctx.beginPath();
+      for (let i = 0; i < 6; i++) {
+        const a = Math.PI / 6 + (i * Math.PI) / 3;
+        const px = x + Math.cos(a) * size * 0.8;
+        const py = y + Math.sin(a) * size * 0.8;
+        if (i) ctx.lineTo(px, py);
+        else ctx.moveTo(px, py);
+      }
+      ctx.closePath();
+      ctx.fillStyle = on ? "rgba(240,187,102,0.75)" : "rgba(240,187,102,0.05)";
+      ctx.fill();
+      ctx.strokeStyle = on ? "rgba(255,225,168,0.9)" : "rgba(240,187,102,0.22)";
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    }
+  }
+  glowing(ctx, 3, 0.6, () => {
+    ctx.beginPath();
+    ["1,1", "3,0", "4,2", "6,1"].forEach((key, index) => {
+      const [x, y] = centres[key];
+      if (index) ctx.lineTo(x, y);
+      else ctx.moveTo(x, y);
+    });
+    ctx.stroke();
+  });
+  ctx.fillStyle = "rgba(11,8,5,0.82)";
+  ctx.fillRect(345, 300, 170, 120);
+  glowing(ctx, 9, 1, () => {
+    ctx.beginPath();
+    ctx.moveTo(392, 318);
+    ctx.lineTo(358, 360);
+    ctx.lineTo(392, 402);
+    ctx.moveTo(468, 318);
+    ctx.lineTo(502, 360);
+    ctx.lineTo(468, 402);
+    ctx.moveTo(446, 312);
+    ctx.lineTo(414, 408);
+    ctx.stroke();
+  });
+}
+
+/** A message rising on signal arcs. */
+function contactEmblem(ctx: CanvasRenderingContext2D) {
+  const cx = 430;
+  const base = 470;
+  [190, 150, 110].forEach((r, index) => {
+    glowing(ctx, 4, 0.22 + index * 0.18, () => {
+      ctx.beginPath();
+      ctx.arc(cx, base, r, Math.PI + 0.55, Math.PI * 2 - 0.55);
+      ctx.stroke();
+    });
+  });
+  ctx.fillStyle = BRIGHT;
+  ctx.beginPath();
+  ctx.arc(cx, base - 4, 8, 0, Math.PI * 2);
+  ctx.fill();
+  const [x, y, ew, eh] = [cx - 70, 300, 140, 92];
+  ctx.fillStyle = "#0b0805";
+  ctx.fillRect(x, y, ew, eh);
+  glowing(ctx, 5, 1, () => {
+    ctx.strokeRect(x, y, ew, eh);
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    ctx.lineTo(cx, y + 54);
+    ctx.lineTo(x + ew, y);
+    ctx.stroke();
+  });
+}
+
+const EMBLEMS: Record<PanelEmblem, (ctx: CanvasRenderingContext2D) => void> = {
+  projects: projectsEmblem,
+  about: aboutEmblem,
+  skills: skillsEmblem,
+  contact: contactEmblem,
+};
+
+/** Navigation panels in the Archive hall: a number, one big word and an emblem for the page. */
+export function navPanelTexture(no: string, title: string, emblem: PanelEmblem, seed: number) {
   const w = 640;
   const h = 500;
   return paintedTexture(w, h, (ctx, display) => {
     frame(ctx, w, h);
-    ridges(ctx, 5, 5, w - 10, h - 10, seed);
-    const shade = ctx.createLinearGradient(0, 0, 0, h * 0.72);
-    shade.addColorStop(0, "rgba(6,4,2,0.92)");
-    shade.addColorStop(0.7, "rgba(6,4,2,0.75)");
-    shade.addColorStop(1, "rgba(6,4,2,0)");
-    ctx.fillStyle = shade;
-    ctx.fillRect(5, 5, w - 10, h * 0.72);
+    const back = ctx.createLinearGradient(0, 0, 0, h);
+    back.addColorStop(0, "#0c0906");
+    back.addColorStop(1, "#24170b");
+    ctx.fillStyle = back;
+    ctx.fillRect(5, 5, w - 10, h - 10);
+    // Faint stars, placed the same way every time from the panel's seed.
+    const rand = seeded(seed);
+    for (let i = 0; i < 26; i++) {
+      ctx.fillStyle = `rgba(255,232,196,${0.15 + rand() * 0.35})`;
+      ctx.fillRect(20 + rand() * (w - 40), 240 + rand() * (h - 260), 3, 3);
+    }
+    const glow = ctx.createRadialGradient(430, 370, 10, 430, 370, 230);
+    glow.addColorStop(0, "rgba(201,138,66,0.28)");
+    glow.addColorStop(1, "rgba(201,138,66,0)");
+    ctx.fillStyle = glow;
+    ctx.fillRect(5, 5, w - 10, h - 10);
+    EMBLEMS[emblem](ctx);
     ctx.fillStyle = GOLD;
     ctx.font = `500 58px ${display}`;
     tracked(ctx, no, 38, 92, 4);

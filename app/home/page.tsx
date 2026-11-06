@@ -67,16 +67,86 @@ async function FeaturedProjects() {
   );
 }
 
+/** A faint moving picture behind each card: an orbit, a lattice of skills, a signal. */
+function CardMotif({ kind }: { kind: (typeof infoCards)[number]["key"] }) {
+  return (
+    <svg
+      viewBox="40 12 120 76"
+      aria-hidden
+      className="card-motif pointer-events-none absolute right-3 max-sm:hidden top-2 h-[3.8rem] w-24 text-gold"
+      fill="none"
+      stroke="currentColor"
+    >
+      {kind === "about" && (
+        <>
+          <circle cx="104" cy="50" r="20" strokeWidth="1.2" />
+          <circle cx="104" cy="44" r="6" fill="currentColor" stroke="none" />
+          <path d="M92 64a12 10 0 0 1 24 0" fill="currentColor" stroke="none" />
+          <ellipse
+            cx="104"
+            cy="50"
+            rx="46"
+            ry="13"
+            strokeWidth="1.2"
+            strokeDasharray="2 5"
+            transform="rotate(-14 104 50)"
+            className="motif-flow"
+          />
+          <circle cx="148" cy="39" r="2.6" fill="currentColor" stroke="none" />
+        </>
+      )}
+      {kind === "skills" && (
+        <>
+          {[0, 1, 2, 3].map((col) =>
+            [0, 1, 2].map((row) => (
+              <rect
+                key={`${col}-${row}`}
+                x={70 + col * 20}
+                y={22 + row * 20}
+                width="12"
+                height="12"
+                strokeWidth="1"
+                className="motif-blink"
+                style={{ animationDelay: `${(col * 3 + row) * 0.37}s` }}
+              />
+            )),
+          )}
+          <path d="M60 30 46 52l14 22M140 30l14 22-14 22" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+        </>
+      )}
+      {kind === "contact" && (
+        <>
+          {[10, 20, 30].map((r, index) => (
+            <path
+              key={r}
+              d={`M${110 - r} 52a${r} ${r} 0 0 1 ${2 * r} 0`}
+              strokeWidth="1.4"
+              className="motif-pulse"
+              style={{ animationDelay: `${index * 0.45}s` }}
+            />
+          ))}
+          <path d="M88 58h44v26H88zM88 58l22 15 22-15" strokeWidth="1.6" strokeLinejoin="round" />
+        </>
+      )}
+    </svg>
+  );
+}
+
 async function InfoCards() {
   const { home } = await loadContent();
   return (
     <section className="hud-panel rise mt-3 grid divide-gold-faint lg:mt-4 lg:grid-cols-3 lg:divide-x" style={stagger(6)}>
-      {infoCards.map((card) => (
-        <div key={card.key} className="flex gap-4 p-3 lg:px-5">
-          <Icon name={card.icon} className="mt-0.5 size-8 shrink-0 text-gold" />
-          <div className="min-w-0 flex-1">
-            <h2 className="label text-text">{card.title}</h2>
-            <p className="mt-1 text-[0.72rem] leading-[1.5] tracking-wide text-soft">{home[card.key]}</p>
+      {infoCards.map((card, index) => (
+        <div key={card.key} className="info-card group relative flex gap-4 overflow-hidden p-3 lg:px-5">
+          <span aria-hidden className="info-sweep" style={{ animationDelay: `${index * 1.4}s` }} />
+          <CardMotif kind={card.key} />
+          <Icon name={card.icon} className="relative mt-0.5 size-8 shrink-0 text-gold transition-transform duration-300 group-hover:-translate-y-0.5" />
+          <div className="relative min-w-0 flex-1 sm:max-lg:pr-28">
+            <h2 className="label text-text">
+              <span className="mr-2 text-muted">0{index + 1}</span>
+              {card.title}
+            </h2>
+            <p className="mt-1 text-[0.72rem] leading-[1.5] tracking-wide text-soft lg:pr-24">{home[card.key]}</p>
             <TravelLink href={card.href} className="label mt-0.5 flex items-center justify-end gap-2 text-[0.62rem] text-gold max-lg:py-2.5 max-lg:text-[0.7rem] transition-colors hover:text-gold-bright">
               {card.cta} <Arrow className="w-4" />
             </TravelLink>

@@ -19,7 +19,7 @@ import {
   type SkyOptions,
   WetFloor,
 } from "../parts";
-import { navPanelTexture } from "../panelTexture";
+import { navPanelTexture, type PanelEmblem } from "../panelTexture";
 import { diskBasis, glow, makeWorld, type Pose, surface } from "../shared";
 import { Console, Railing, Rotunda } from "./architecture";
 
@@ -53,15 +53,16 @@ const SKY: SkyOptions = {
 const PANELS: {
   no: string;
   title: string;
+  emblem: PanelEmblem;
   href: string;
   position: [number, number, number];
   rotation: [number, number, number];
   seed: number;
 }[] = [
-  { no: "01", title: "Projects", href: "/projects", position: [-4.7, 6.5, -2], rotation: [0.02, 0.42, -0.05], seed: 11 },
-  { no: "02", title: "About", href: "/about", position: [-4.6, 3.25, -1], rotation: [0.03, 0.42, 0.04], seed: 23 },
-  { no: "03", title: "Skills", href: "/about#skills", position: [6.8, 7, -3], rotation: [0.02, -0.46, 0.06], seed: 31 },
-  { no: "04", title: "Contact", href: "/contact", position: [5.8, 3.4, -1], rotation: [0.03, -0.44, -0.05], seed: 47 },
+  { no: "01", title: "Projects", emblem: "projects", href: "/projects", position: [-4.7, 6.5, -2], rotation: [0.02, 0.42, -0.05], seed: 11 },
+  { no: "02", title: "About", emblem: "about", href: "/about", position: [-4.6, 3.25, -1], rotation: [0.03, 0.42, 0.04], seed: 23 },
+  { no: "03", title: "Skills", emblem: "skills", href: "/about#skills", position: [6.8, 7, -3], rotation: [0.02, -0.46, 0.06], seed: 31 },
+  { no: "04", title: "Contact", emblem: "contact", href: "/contact", position: [5.8, 3.4, -1], rotation: [0.03, -0.44, -0.05], seed: 47 },
 ];
 
 function Dais() {
@@ -119,7 +120,7 @@ export function HallScene({ visible }: { visible: boolean }) {
     return {
       world,
       basis: diskBasis(new THREE.Vector3(...EYE), new THREE.Vector3(...HOLE), TILT, ROLL),
-      textures: PANELS.map((p) => navPanelTexture(p.no, p.title.toUpperCase(), p.seed)),
+      textures: PANELS.map((p) => navPanelTexture(p.no, p.title.toUpperCase(), p.emblem, p.seed)),
       shelf: surface(world, { color: "#2a1d10", shine: 30, spec: 0.5, rim: 0.4 }),
     };
   }, []);

@@ -564,6 +564,73 @@ body {
   background: #ffd591;
 }
 
+/* Home's bottom cards: a light that runs along the top edge, and faint moving motifs. */
+@keyframes info-sweep {
+  from {
+    background-position: -40% 0;
+  }
+  to {
+    background-position: 140% 0;
+  }
+}
+@keyframes motif-pulse {
+  0% {
+    opacity: 0.15;
+  }
+  30% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0.15;
+  }
+}
+@keyframes motif-blink {
+  0%,
+  70%,
+  100% {
+    fill: transparent;
+  }
+  80% {
+    fill: currentColor;
+  }
+}
+.info-card {
+  transition: background-color 400ms ease;
+}
+.info-card:hover {
+  background-color: rgb(236 182 95 / 0.05);
+}
+.info-sweep {
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--gold-bright), transparent) no-repeat;
+  background-size: 40% 100%;
+  animation: info-sweep 5.6s linear infinite;
+}
+.card-motif {
+  opacity: 0.32;
+  transition: opacity 500ms ease;
+}
+.info-card:hover .card-motif {
+  opacity: 0.7;
+}
+/* The dashes move along the orbit; 70 is ten whole dash lengths, so the loop has no jump. */
+.motif-flow {
+  animation: motif-flow 5s linear infinite;
+}
+@keyframes motif-flow {
+  to {
+    stroke-dashoffset: -70;
+  }
+}
+.motif-pulse {
+  animation: motif-pulse 2.6s ease-out infinite;
+}
+.motif-blink {
+  animation: motif-blink 4.4s steps(1) infinite;
+}
+
 /* On phones the content scrolls under the header, so it needs its own backing. */
 @media (max-width: 1023px) {
   .site-header {
@@ -582,7 +649,11 @@ body {
   .detail-wipe,
   .detail-image,
   .language-bar,
-  .contribution-day {
+  .contribution-day,
+  .info-sweep,
+  .motif-flow,
+  .motif-pulse,
+  .motif-blink {
     animation: none;
   }
   .detail-scan {
